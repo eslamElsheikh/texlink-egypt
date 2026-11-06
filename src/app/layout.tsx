@@ -1,13 +1,11 @@
-import type { Metadata } from "next";
-import { Cairo } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const cairo = Cairo({
-  subsets: ["arabic", "latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
-  variable: "--font-cairo",
-  display: "swap",
-});
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   title: "TexLink Egypt | منصة ربط مصانع التريكو في مصر بالمشترين",
@@ -24,7 +22,6 @@ export const metadata: Metadata = {
     "RFQ مصر",
   ],
   authors: [{ name: "TexLink Egypt" }],
-  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
 };
 
 export default function RootLayout({
@@ -33,7 +30,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" className={cairo.variable}>
+    <html lang="ar" dir="rtl">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-screen flex flex-col font-sans bg-white text-slate-900 antialiased selection:bg-purple-100 selection:text-purple-900">
         {children}
       </body>
