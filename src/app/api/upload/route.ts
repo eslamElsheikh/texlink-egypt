@@ -111,7 +111,13 @@ export async function POST(req: Request) {
           );
         }
       } else {
-        // Fallback to local private storage
+        if (process.env.NODE_ENV === "production") {
+          return NextResponse.json(
+            { error: "وحدة التخزين السحابية غير مهيأة. يرجى تهيئة Supabase Storage في بيئة الإنتاج." },
+            { status: 503 }
+          );
+        }
+        // Fallback to local private storage strictly in development/test
         const privateDir = path.join(process.cwd(), "storage", "private", "documents");
         await mkdir(privateDir, { recursive: true });
         const filePath = path.join(privateDir, storageKey);
@@ -150,6 +156,12 @@ export async function POST(req: Request) {
         publicUrl = uploadRes.url;
       }
     } else {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { error: "وحدة التخزين السحابية غير مهيأة. يرجى تهيئة Supabase Storage في بيئة الإنتاج." },
+          { status: 503 }
+        );
+      }
       const publicDir = path.join(process.cwd(), "public", "uploads");
       await mkdir(publicDir, { recursive: true });
       const filePath = path.join(publicDir, publicFileName);

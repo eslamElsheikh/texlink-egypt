@@ -80,8 +80,19 @@ export async function GET(
       }
     }
 
-    // 2. Fall back to local filesystem storage
+    // 2. Fall back to local filesystem storage strictly in development/testing
     if (!fileBuffer) {
+      if (isSupabaseStorageConfigured()) {
+        return NextResponse.json({ error: "المستند غير موجود في التخزين السحابي" }, { status: 404 });
+      }
+
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { error: "وحدة التخزين السحابية غير مهيأة. يرجى تهيئة Supabase Storage في بيئة الإنتاج." },
+          { status: 503 }
+        );
+      }
+
       const privateDir = path.join(process.cwd(), "storage", "private", "documents");
       const filePath = path.join(privateDir, safeKey);
       try {
