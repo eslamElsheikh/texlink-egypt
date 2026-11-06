@@ -1,30 +1,130 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Phone, User, UserPlus } from "lucide-react";
+import {
+  Phone,
+  User,
+  UserPlus,
+  ShieldCheck,
+  Building2,
+  LogOut,
+  MessageSquare,
+} from "lucide-react";
+
+interface CurrentUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "BUYER" | "FACTORY" | "ADMIN";
+  isFactory: boolean;
+  isBuyer: boolean;
+  factoryProfile?: {
+    id: string;
+    slug: string;
+    nameAr: string;
+  } | null;
+}
 
 export function TopBar() {
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user) {
+          setUser(data.user);
+        }
+      })
+      .catch((err) => console.error("Error fetching auth user:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
   return (
     <div className="bg-[#0b1320] text-slate-300 text-xs md:text-sm py-2 px-4 border-b border-slate-800/80">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Right side in RTL (Auth links) */}
+        {/* Right side in RTL (Auth links / User Profile) */}
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="flex items-center gap-1.5 hover:text-white transition-colors"
-          >
-            <User className="w-3.5 h-3.5 text-slate-400" />
-            <span>تسجيل الدخول</span>
-          </Link>
-          <span className="text-slate-600">|</span>
-          <Link
-            href="/register"
-            className="flex items-center gap-1.5 hover:text-white transition-colors"
-          >
-            <UserPlus className="w-3.5 h-3.5 text-slate-400" />
-            <span>إنشاء حساب جديد</span>
-          </Link>
+          {loading ? (
+            <div className="h-4 w-28 bg-slate-800 animate-pulse rounded"></div>
+          ) : user ? (
+            <div className="flex items-center gap-3">
+              {/* Role Badge & Portal Links */}
+              {user.role === "ADMIN" && (
+                <Link
+                  href="/admin/factories"
+                  className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-md font-bold flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>لوحة تحكم الإدارة</span>
+                </Link>
+              )}
+
+              {user.isFactory && user.factoryProfile && (
+                <Link
+                  href={`/factories/${user.factoryProfile.slug}`}
+                  className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-md font-medium flex items-center gap-1 hover:bg-emerald-500/30 transition-colors"
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>ملف مصنعي</span>
+                </Link>
+              )}
+
+              <Link
+                href="/messages"
+                className="flex items-center gap-1 text-slate-300 hover:text-white transition-colors"
+                title="الرسائل والمحادثات"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-purple-400" />
+                <span className="hidden sm:inline">الرسائل</span>
+              </Link>
+
+              <span className="text-slate-600">|</span>
+
+              <span className="flex items-center gap-1.5 text-white font-semibold">
+                <User className="w-3.5 h-3.5 text-purple-400" />
+                <span>مرحباً، {user.name}</span>
+              </span>
+
+              <button
+                onClick={handleLogout}
+                className="text-slate-400 hover:text-rose-400 flex items-center gap-1 transition-colors mr-1"
+                title="تسجيل الخروج"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">خروج</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 hover:text-white transition-colors"
+              >
+                <User className="w-3.5 h-3.5 text-slate-400" />
+                <span>تسجيل الدخول</span>
+              </Link>
+              <span className="text-slate-600">|</span>
+              <Link
+                href="/register"
+                className="flex items-center gap-1.5 hover:text-white transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5 text-slate-400" />
+                <span>إنشاء حساب جديد</span>
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Left side in RTL (Support & WhatsApp) */}
@@ -44,7 +144,6 @@ export function TopBar() {
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 transition-colors font-medium"
           >
-            {/* WhatsApp SVG Icon */}
             <svg
               className="w-4 h-4 fill-current text-[#25D366]"
               viewBox="0 0 24 24"

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
-import { createSessionToken, setSessionCookie } from "@/lib/auth/session";
+import { createSessionToken } from "@/lib/auth/session";
 import { z } from "zod";
 
 const registerSchema = z.object({
@@ -101,12 +101,21 @@ export async function POST(req: Request) {
     };
 
     const token = await createSessionToken(sessionPayload);
-    await setSessionCookie(token);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: sessionPayload,
     });
+
+    response.cookies.set("texlink_session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
+
+    return response;
   } catch (error) {
     console.error("Register error:", error);
     return NextResponse.json(

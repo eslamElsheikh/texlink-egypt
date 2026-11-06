@@ -5,20 +5,20 @@ import { TopBar } from "@/components/layout/TopBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Logo } from "@/components/brand/Logo";
-import { User, Lock, ArrowLeft, AlertCircle } from "lucide-react";
+import { User, Lock, ArrowLeft, AlertCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccessMsg("");
     setLoading(true);
 
     try {
@@ -31,12 +31,23 @@ export default function LoginPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "فشل تسجيل الدخول");
 
-      router.push("/");
-      router.refresh();
+      setSuccessMsg("تم تسجيل الدخول بنجاح! جاري تحويلك...");
+
+      // Choose destination according to role
+      let destination = "/";
+      if (json.user?.role === "ADMIN") {
+        destination = "/admin/factories";
+      } else if (json.user?.role === "FACTORY" && json.user?.factorySlug) {
+        destination = `/factories/${json.user.factorySlug}`;
+      }
+
+      // Hard redirect to ensure full cookie propagation
+      setTimeout(() => {
+        window.location.href = destination;
+      }, 300);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "حدث خطأ أثناء تسجيل الدخول";
       setError(msg);
-    } finally {
       setLoading(false);
     }
   };
@@ -62,6 +73,13 @@ export default function LoginPage() {
             <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-xl text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successMsg}</span>
             </div>
           )}
 
@@ -110,39 +128,46 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo Logins Helper */}
-          <div className="bg-purple-50/60 border border-purple-100 rounded-xl p-3 text-[11px] text-slate-600 space-y-1">
-            <span className="font-bold text-purple-900 block">حسابات تجريبية سريعة (كلمة المرور: 123456):</span>
-            <div className="flex flex-col gap-0.5 font-mono text-[10px]">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("buyer1@cairo-apparel.com");
-                  setPassword("123456");
-                }}
-                className="text-right hover:text-purple-700 underline text-slate-700"
-              >
-                مشتري: buyer1@cairo-apparel.com
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("elnasr@mahalla-textile.com");
-                  setPassword("123456");
-                }}
-                className="text-right hover:text-purple-700 underline text-slate-700"
-              >
-                مصنع: elnasr@mahalla-textile.com
-              </button>
+          {/* Quick Demo Logins Helper */}
+          <div className="bg-purple-50/60 border border-purple-100 rounded-xl p-3.5 text-xs text-slate-700 space-y-2">
+            <span className="font-bold text-purple-900 block">
+              حسابات تجريبية سريعة (انقر للتعبئة التلقائية):
+            </span>
+            <div className="grid grid-cols-1 gap-1.5 font-medium text-xs">
               <button
                 type="button"
                 onClick={() => {
                   setEmail("admin@texlink-egypt.com");
                   setPassword("123456");
                 }}
-                className="text-right hover:text-purple-700 underline text-slate-700"
+                className="text-right bg-white p-2 rounded-lg border border-purple-100 hover:border-purple-300 hover:bg-purple-50 transition-colors flex items-center justify-between"
               >
-                إدارة: admin@texlink-egypt.com
+                <span>👑 إدارة المنصة (Admin)</span>
+                <span className="text-[11px] text-purple-700 font-mono">admin@texlink-egypt.com</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("buyer1@cairo-apparel.com");
+                  setPassword("123456");
+                }}
+                className="text-right bg-white p-2 rounded-lg border border-purple-100 hover:border-purple-300 hover:bg-purple-50 transition-colors flex items-center justify-between"
+              >
+                <span>🛍️ مشتري / براند (Buyer)</span>
+                <span className="text-[11px] text-purple-700 font-mono">buyer1@cairo-apparel.com</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("elnasr@mahalla-textile.com");
+                  setPassword("123456");
+                }}
+                className="text-right bg-white p-2 rounded-lg border border-purple-100 hover:border-purple-300 hover:bg-purple-50 transition-colors flex items-center justify-between"
+              >
+                <span>🏭 مصنع النصر للتريكو (Factory)</span>
+                <span className="text-[11px] text-purple-700 font-mono">elnasr@mahalla-textile.com</span>
               </button>
             </div>
           </div>
