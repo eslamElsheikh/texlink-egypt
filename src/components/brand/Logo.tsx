@@ -5,9 +5,10 @@ interface LogoProps {
   className?: string;
   variant?: "dark" | "light";
   size?: "sm" | "md" | "lg";
+  href?: string;
 }
 
-export function Logo({ className = "", variant = "dark", size = "md" }: LogoProps) {
+export function Logo({ className = "", variant = "dark", size = "md", href = "/" }: LogoProps) {
   const isLight = variant === "light";
   const sizeClasses = {
     sm: "h-8 text-lg",
@@ -16,7 +17,7 @@ export function Logo({ className = "", variant = "dark", size = "md" }: LogoProp
   };
 
   return (
-    <Link href="/" className={`inline-flex items-center gap-2 group ${className}`} dir="ltr">
+    <Link href={href} className={`inline-flex items-center gap-2 group ${className}`} dir="ltr">
       <div className="flex flex-col leading-none">
         <span
           className={`font-black tracking-tight font-sans ${

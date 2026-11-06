@@ -23,12 +23,16 @@ import {
   Star,
   Settings,
   Scale,
+  BarChart3,
+  User,
 } from "lucide-react";
 
 export interface DashboardUser {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  avatarUrl?: string | null;
   role: "ADMIN" | "FACTORY" | "BUYER";
   isFactory: boolean;
   isBuyer: boolean;
@@ -59,18 +63,24 @@ export function DashboardSidebar({
       badge: "مدير المنصة",
       activeBg: "bg-indigo-50 text-indigo-900 border-r-4 border-r-indigo-700",
       activeIcon: "text-indigo-700",
+      logoHref: "/admin/dashboard",
+      profileHref: "/admin/profile",
     },
     FACTORY: {
       title: "لوحة تحكم المصنع",
       badge: "مصنع معتمد",
       activeBg: "bg-[#E8F7F0] text-[#079B62] border-r-4 border-r-[#079B62]",
       activeIcon: "text-[#079B62]",
+      logoHref: "/factory/dashboard",
+      profileHref: user.factorySlug ? `/factories/${user.factorySlug}` : "/factory/dashboard",
     },
     BUYER: {
       title: "لوحة تحكم المشتري",
       badge: "مشتري / براند",
       activeBg: "bg-[#F1ECFF] text-[#5932A8] border-r-4 border-r-[#5932A8]",
       activeIcon: "text-[#5932A8]",
+      logoHref: "/buyer/dashboard",
+      profileHref: "/buyer/dashboard",
     },
   }[currentRole];
 
@@ -101,26 +111,42 @@ export function DashboardSidebar({
               href: "/admin/orders",
               icon: CheckCircle2,
             },
+            {
+              title: "التحليلات والإحصائيات",
+              href: "/admin/analytics",
+              icon: BarChart3,
+            },
           ],
         },
         {
-          label: "التواصل والمنصة",
+          label: "إدارة المنصة والتواصل",
           items: [
             {
+              title: "التصنيفات والخامات",
+              href: "/admin/categories",
+              icon: Layers,
+            },
+            {
               title: "الرسائل والبلاغات",
-              href: "/messages",
+              href: "/admin/messages",
               icon: MessageSquare,
               badge: unreadCount > 0 ? unreadCount : undefined,
             },
             {
-              title: "الكتالوج العام",
-              href: "/products",
-              icon: Package,
+              title: "الملف الشخصي",
+              href: "/admin/profile",
+              icon: User,
             },
             {
-              title: "معاينة الموقع الرئيسي",
+              title: "إعدادات المنصة",
+              href: "/admin/settings",
+              icon: Settings,
+            },
+            {
+              title: "معاينة الموقع الرئيسي (نافذة جديدة)",
               href: "/",
               icon: ExternalLink,
+              external: true,
             },
           ],
         },
@@ -163,7 +189,7 @@ export function DashboardSidebar({
               icon: Package,
             },
             {
-              title: "ملف مصنعي",
+              title: "ملف مصنعي العام",
               href: user.factorySlug ? `/factories/${user.factorySlug}` : "/factories",
               icon: Building2,
             },
@@ -174,9 +200,10 @@ export function DashboardSidebar({
               badge: unreadCount > 0 ? unreadCount : undefined,
             },
             {
-              title: "الرئيسية للموقع",
+              title: "معاينة الموقع (نافذة جديدة)",
               href: "/",
               icon: ExternalLink,
+              external: true,
             },
           ],
         },
@@ -235,9 +262,10 @@ export function DashboardSidebar({
             badge: unreadCount > 0 ? unreadCount : undefined,
           },
           {
-            title: "الرئيسية للموقع",
+            title: "معاينة الموقع (نافذة جديدة)",
             href: "/",
             icon: ExternalLink,
+            external: true,
           },
         ],
       },
@@ -258,9 +286,9 @@ export function DashboardSidebar({
   return (
     <aside className="w-64 bg-white border-l border-[#E5EAF2] h-full flex flex-col justify-between select-none">
       <div>
-        {/* Brand Header matching Dashboard.jpg */}
+        {/* Brand Header: Logo points to role dashboard (does not kick admin out) */}
         <div className="p-5 border-b border-[#F1F4F9] flex items-center justify-between">
-          <Logo size="sm" />
+          <Logo size="sm" href={roleConfig.logoHref} />
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
             {roleConfig.badge}
           </span>
@@ -277,6 +305,24 @@ export function DashboardSidebar({
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
+
+                if (item.external) {
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#718096] hover:text-[#17233F] hover:bg-[#F5F7FB] transition-all"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="w-4 h-4 text-slate-400" />
+                        <span>{item.title}</span>
+                      </div>
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                    </a>
+                  );
+                }
 
                 return (
                   <Link
@@ -341,21 +387,28 @@ export function DashboardSidebar({
           </div>
         )}
 
-        {/* User Card Pill matching Dashboard.jpg */}
-        <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E5EAF2]">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-purple-100 text-[#5932A8] font-bold text-xs flex items-center justify-center shrink-0 border border-purple-200">
-              {user.name.slice(0, 1)}
+        {/* User Card Pill linking to Profile */}
+        <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E5EAF2] hover:border-purple-300 transition-colors">
+          <Link
+            href={roleConfig.profileHref}
+            className="flex items-center gap-2.5 overflow-hidden flex-1 group"
+          >
+            <div className="w-8 h-8 rounded-full bg-purple-100 text-[#5932A8] font-bold text-xs flex items-center justify-center shrink-0 border border-purple-200 overflow-hidden">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                user.name.slice(0, 1)
+              )}
             </div>
             <div className="overflow-hidden text-right">
-              <span className="text-xs font-bold text-[#17233F] block truncate">
+              <span className="text-xs font-bold text-[#17233F] group-hover:text-[#5932A8] transition-colors block truncate">
                 {user.name}
               </span>
               <span className="text-[10px] text-[#718096] block truncate">
-                {user.email}
+                {roleConfig.badge}
               </span>
             </div>
-          </div>
+          </Link>
 
           <button
             type="button"
