@@ -10,6 +10,7 @@ import {
   Building2,
   LogOut,
   MessageSquare,
+  LayoutDashboard,
 } from "lucide-react";
 
 interface CurrentUser {
@@ -54,30 +55,53 @@ export function TopBar() {
   return (
     <div className="bg-[#0b1320] text-slate-300 text-xs md:text-sm py-2 px-4 border-b border-slate-800/80">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Right side in RTL (Auth links / User Profile) */}
+        {/* Right side in RTL (Auth links / User Profile / Dashboard Link) */}
         <div className="flex items-center gap-3">
           {loading ? (
             <div className="h-4 w-28 bg-slate-800 animate-pulse rounded"></div>
           ) : user ? (
-            <div className="flex items-center gap-3">
-              {/* Role Badge & Portal Links */}
+            <div className="flex items-center gap-2.5">
+              {/* 1. ADMIN Dashboard Button */}
               {user.role === "ADMIN" && (
                 <Link
-                  href="/admin/factories"
-                  className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-md font-bold flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
+                  href="/admin/dashboard"
+                  className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 hover:bg-amber-500/30 transition-colors shadow-sm"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
                   <span>لوحة تحكم الإدارة</span>
                 </Link>
               )}
 
-              {user.isFactory && user.factoryProfile && (
+              {/* 2. FACTORY Dashboard Button (Takes factory owner directly to /factory/dashboard) */}
+              {user.isFactory && (
                 <Link
-                  href={`/factories/${user.factoryProfile.slug}`}
-                  className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-md font-medium flex items-center gap-1 hover:bg-emerald-500/30 transition-colors"
+                  href="/factory/dashboard"
+                  className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 hover:bg-emerald-500/30 transition-colors shadow-sm"
                 >
-                  <Building2 className="w-3.5 h-3.5" />
-                  <span>ملف مصنعي</span>
+                  <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>لوحة تحكم المصنع</span>
+                </Link>
+              )}
+
+              {/* 3. BUYER Dashboard Button */}
+              {user.isBuyer && !user.isFactory && user.role !== "ADMIN" && (
+                <Link
+                  href="/buyer/dashboard"
+                  className="bg-purple-500/20 text-purple-300 border border-purple-500/40 px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 hover:bg-purple-500/30 transition-colors shadow-sm"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5 text-purple-400" />
+                  <span>لوحة تحكم المشتري</span>
+                </Link>
+              )}
+
+              {/* If dual role (Buyer + Factory): also allow jumping to buyer dashboard */}
+              {user.isFactory && user.isBuyer && user.role !== "ADMIN" && (
+                <Link
+                  href="/buyer/dashboard"
+                  className="bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 hover:bg-purple-500/30 transition-colors text-xs"
+                  title="التبديل إلى لوحة المشتري"
+                >
+                  <span>لوحة المشتري 🛍️</span>
                 </Link>
               )}
 
