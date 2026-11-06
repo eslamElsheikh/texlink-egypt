@@ -1,0 +1,320 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String
+  role         String    @default("BUYER") // "BUYER", "FACTORY", "ADMIN"
+  isFactory    Boolean   @default(false)
+  isBuyer      Boolean   @default(true)
+  avatarUrl    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  factoryProfile     FactoryProfile?
+  buyerProfile       BuyerProfile?
+  rfqs               Rfq[]
+  ordersAsBuyer      Order[]          @relation("BuyerOrders")
+  sentMessages       Message[]        @relation("SentMessages")
+  reviews            Review[]         @relation("UserReviews")
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+}
+
+model FactoryProfile {
+  id                 String           @id @default(cuid())
+  userId             String           @unique
+  nameAr             String
+  slug               String           @unique
+  governorate        String
+  city               String
+  address            String           // Street address (masked until quote accepted)
+  phone              String           // Factory phone (masked until quote accepted)
+  whatsapp           String           // WhatsApp (masked until quote accepted)
+  bioAr              String
+  logoUrl            String?
+  coverUrl           String?
+  verificationStatus String           @default("PENDING") // "PENDING", "VERIFIED", "REJECTED"
+  rejectionReason    String?
+  verifiedAt         DateTime?
+  minOrderQuantity   Int              @default(50)
+  monthlyCapacity    Int              @default(5000)
+  establishedYear    Int              @default(2015)
+  rating             Float            @default(4.5)
+  reviewCount        Int              @default(0)
+  specialties        String           // JSON string array e.g. ["تيشيرتات", "بولو"]
+  machines           String           // JSON string array e.g. ["ماكينات خياطة 4 فتلة"]
+  fabrics            String           // JSON string array e.g. ["قطن 100%", "ميلتون"]
+  gallery            String           @default("[]") // JSON string array of image URLs
+  featured           Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents          FactoryDocument[]
+  products           Product[]
+  quotes             Quote[]
+  orders             Order[]          @relation("FactoryOrders")
+  reviewsReceived    Review[]         @relation("FactoryReviews")
+}
+
+model FactoryDocument {
+  id         String         @id @default(cuid())
+  factoryId  String
+  type       String         // "COMMERCIAL_REGISTER", "TAX_CARD", "INDUSTRIAL_REGISTER", "OTHER"
+  fileUrl    String
+  fileName   String
+  status     String         @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  uploadedAt DateTime       @default(now())
+
+  factory    FactoryProfile @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+}
+
+model BuyerProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  companyName  String
+  businessType String   @default("WHOLESALER") // "WHOLESALER", "BRAND", "RETAILER", "INDIVIDUAL"
+  governorate  String
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  nameAr   String
+  nameEn   String
+  slug     String    @unique
+  icon     String?
+
+  products Product[]
+  rfqs     Rfq[]
+}
+
+model Product {
+  id            String             @id @default(cuid())
+  factoryId     String
+  categoryId    String
+  nameAr        String
+  descriptionAr String
+  fabric        String
+  gsm           Int?
+  colors        String             @default("[]") // JSON string array
+  sizes         String             @default("[]") // JSON string array
+  moq           Int                @default(50)
+  leadTimeDays  Int                @default(7)
+  stockQuantity Int                @default(100)
+  basePrice     Float
+  images        String             @default("[]") // JSON string array
+  isActive      Boolean            @default(true)
+  isFeatured    Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  factory       FactoryProfile     @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  category      Category           @relation(fields: [categoryId], references: [id])
+  priceTiers    ProductPriceTier[]
+  orders        Order[]
+}
+
+model ProductPriceTier {
+  id           String  @id @default(cuid())
+  productId    String
+  minQuantity  Int
+  maxQuantity  Int?
+  pricePerPiece Float
+
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Rfq {
+  id                  String             @id @default(cuid())
+  buyerId             String
+  titleAr             String
+  productType         String
+  categoryId          String?
+  totalQuantity       Int
+  fabricDetails       String
+  gsm                 Int?
+  colors              String?
+  printingEmbroidery  String?
+  targetBudgetPerPiece Float?
+  deadlineDays        Int                @default(15)
+  deadlineDate        DateTime?
+  sampleRequired      Boolean            @default(true)
+  targetGovernorate   String?
+  notesAr             String?
+  status              String             @default("OPEN") // "DRAFT", "OPEN", "UNDER_REVIEW", "QUOTE_ACCEPTED", "IN_PRODUCTION", "SHIPPED", "COMPLETED", "CANCELLED", "EXPIRED"
+  expiresAt           DateTime
+  acceptedQuoteId     String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  buyer               User               @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  category            Category?          @relation(fields: [categoryId], references: [id])
+  attachments         RfqAttachment[]
+  sizeBreakdowns      RfqSizeBreakdown[]
+  quotes              Quote[]
+  order               Order?
+  conversations       Conversation[]
+}
+
+model RfqAttachment {
+  id       String @id @default(cuid())
+  rfqId    String
+  fileUrl  String
+  fileType String
+  fileName String
+
+  rfq      Rfq    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+}
+
+model RfqSizeBreakdown {
+  id       String  @id @default(cuid())
+  rfqId    String
+  size     String
+  color    String?
+  quantity Int
+
+  rfq      Rfq     @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+}
+
+model Quote {
+  id                 String         @id @default(cuid())
+  rfqId              String
+  factoryId          String
+  unitPrice          Float
+  totalAmount        Float
+  leadTimeDays       Int
+  samplePrice        Float?
+  sampleLeadTimeDays Int?
+  minQuantity        Int
+  paymentTermsAr     String
+  notesAr            String?
+  status             String         @default("PENDING") // "PENDING", "ACCEPTED", "REJECTED", "EXPIRED", "WITHDRAWN"
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  rfq                Rfq            @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  factory            FactoryProfile @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  order              Order?
+  conversation       Conversation?
+}
+
+model Order {
+  id                  String           @id @default(cuid())
+  orderNumber         String           @unique
+  rfqId               String?          @unique
+  quoteId             String?          @unique
+  productId           String?
+  buyerId             String
+  factoryId           String
+  totalAmount         Float
+  quantity            Int
+  unitPrice           Float
+  paymentTerms        String
+  status              String           @default("CONFIRMED") // "CONFIRMED", "SAMPLE_PENDING", "SAMPLE_APPROVED", "IN_PRODUCTION", "READY_FOR_SHIPPING", "SHIPPED", "DELIVERED", "CANCELLED"
+  agreedDeliveryDate  DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  buyer               User             @relation("BuyerOrders", fields: [buyerId], references: [id])
+  factory             FactoryProfile   @relation("FactoryOrders", fields: [factoryId], references: [id])
+  rfq                 Rfq?             @relation(fields: [rfqId], references: [id])
+  quote               Quote?           @relation(fields: [quoteId], references: [id])
+  product             Product?         @relation(fields: [productId], references: [id])
+  milestones          OrderMilestone[]
+  reviews             Review[]
+  conversation        Conversation?
+}
+
+model OrderMilestone {
+  id          String    @id @default(cuid())
+  orderId     String
+  step        String    // "SAMPLE", "SAMPLE_APPROVAL", "PRODUCTION", "READY", "SHIPPED", "DELIVERED"
+  titleAr     String
+  status      String    @default("PENDING") // "PENDING", "IN_PROGRESS", "COMPLETED"
+  completedAt DateTime?
+  notes       String?
+
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  rfqId         String?
+  orderId       String?   @unique
+  quoteId       String?   @unique
+  buyerId       String
+  factoryId     String
+  lastMessageAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+
+  rfq           Rfq?      @relation(fields: [rfqId], references: [id])
+  order         Order?    @relation(fields: [orderId], references: [id])
+  quote         Quote?    @relation(fields: [quoteId], references: [id])
+  messages      Message[]
+}
+
+model Message {
+  id                  String       @id @default(cuid())
+  conversationId      String
+  senderId            String
+  content             String
+  containsContactInfo Boolean      @default(false)
+  isMasked            Boolean      @default(false)
+  attachments         String?      // JSON string
+  createdAt           DateTime     @default(now())
+
+  conversation        Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender              User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id          String         @id @default(cuid())
+  orderId     String
+  authorId    String
+  factoryId   String
+  rating      Int            // 1 to 5
+  commentAr   String
+  createdAt   DateTime       @default(now())
+
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  author      User           @relation("UserReviews", fields: [authorId], references: [id], onDelete: Cascade)
+  factory     FactoryProfile @relation("FactoryReviews", fields: [factoryId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  titleAr   String
+  bodyAr    String
+  type      String   // "RFQ_MATCH", "QUOTE_RECEIVED", "QUOTE_ACCEPTED", "ORDER_STATUS", "MESSAGE"
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String   // "VERIFY_FACTORY", "REJECT_FACTORY", "MODERATE_RFQ", etc.
+  targetType String
+  targetId   String
+  details    String?  // JSON
+  createdAt  DateTime @default(now())
+
+  admin      User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
