@@ -32,11 +32,11 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const totalExpenses = expenses.reduce((s, exp) => s + exp.amount, 0);
+    const totalExpenses = expenses.reduce((s, exp) => s + Number(exp.amount || 0), 0);
 
     const byCategory: Record<string, number> = {};
     for (const exp of expenses) {
-      byCategory[exp.category] = (byCategory[exp.category] || 0) + exp.amount;
+      byCategory[exp.category] = (byCategory[exp.category] || 0) + Number(exp.amount || 0);
     }
 
     return NextResponse.json({

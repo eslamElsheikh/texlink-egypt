@@ -33,10 +33,10 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const totalCalculatedCost = costs.reduce((s, c) => s + c.totalCost, 0);
+    const totalCalculatedCost = costs.reduce((s, c) => s + Number(c.totalCost || 0), 0);
     const averageCostPerUnit =
       costs.length > 0
-        ? Math.round((costs.reduce((s, c) => s + c.costPerGoodUnit, 0) / costs.length) * 100) / 100
+        ? Math.round((costs.reduce((s, c) => s + Number(c.costPerGoodUnit || 0), 0) / costs.length) * 100) / 100
         : 0;
 
     return NextResponse.json({
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const computedMaterial =
       materialCost !== undefined
         ? parseFloat(String(materialCost))
-        : order.materialConsumptions.reduce((s, c) => s + (c.totalCost || 0), 0) || 50000;
+        : order.materialConsumptions.reduce((s, c) => s + Number(c.totalCost || 0), 0) || 50000;
 
     const computedLabor =
       directLaborCost !== undefined ? parseFloat(String(directLaborCost)) : 15000;

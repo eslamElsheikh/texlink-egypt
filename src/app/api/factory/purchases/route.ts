@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const totalPurchases = orders.reduce((s, o) => s + o.totalAmount, 0);
+    const totalPurchases = orders.reduce((s, o) => s + Number(o.totalAmount || 0), 0);
     const pendingCount = orders.filter((o) => o.status === "PENDING" || o.status === "PARTIALLY_RECEIVED").length;
 
     return NextResponse.json({

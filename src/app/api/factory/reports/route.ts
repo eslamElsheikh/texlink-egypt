@@ -79,7 +79,7 @@ export async function GET(request: Request) {
       const output = m.productionEntries.reduce((s, e) => s + e.producedQuantity, 0);
       const good = m.productionEntries.reduce((s, e) => s + e.goodQuantity, 0);
       const downtime = m.maintenanceTickets.reduce((s, t) => s + (t.downtimeMinutes || 0), 0);
-      const maintCost = m.maintenanceTickets.reduce((s, t) => s + (t.totalCost || 0), 0);
+      const maintCost = m.maintenanceTickets.reduce((s, t) => s + Number(t.totalCost || 0), 0);
 
       return {
         id: m.id,
@@ -164,7 +164,7 @@ export async function GET(request: Request) {
         overallWasteRate,
         totalOrdersCount: orders.length,
         totalInventoryValuation: inventoryItems.reduce(
-          (s, i) => s + (i.totalValuation || i.currentStock * i.unitCost),
+          (s, i) => s + Number(i.totalValuation || Number(i.currentStock) * Number(i.unitCost)),
           0
         ),
       },

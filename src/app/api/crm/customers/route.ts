@@ -35,9 +35,7 @@ export async function GET(request: Request) {
       },
       orderBy: { updatedAt: "desc" },
     });
-
-    const totalSpendAll = customers.reduce((s, c) => s + c.totalSpend, 0);
-
+    const totalSpendAll = customers.reduce((s, c) => s + Number(c.totalSpend || 0), 0);
     return NextResponse.json({
       customers,
       stats: {

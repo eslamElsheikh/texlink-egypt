@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       const wasteRate = totalProduced > 0 ? Math.round((totalDefect / totalProduced) * 1000) / 10 : 0;
 
       const totalDowntime = m.maintenanceTickets.reduce((s, t) => s + (t.downtimeMinutes || 0), 0);
-      const totalMaintenanceCost = m.maintenanceTickets.reduce((s, t) => s + (t.totalCost || 0), 0);
+      const totalMaintenanceCost = m.maintenanceTickets.reduce((s, t) => s + Number(t.totalCost || 0), 0);
       const activeTicket = m.maintenanceTickets.find((t) => t.status === "OPEN" || t.status === "IN_PROGRESS");
 
       return {

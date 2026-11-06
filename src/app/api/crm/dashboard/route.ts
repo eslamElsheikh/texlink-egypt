@@ -72,9 +72,8 @@ export async function GET(request: Request) {
     const totalLeads = leads.length;
 
     const openDeals = deals.filter((d) => d.stage !== "WON" && d.stage !== "LOST");
-    const openDealsValue = openDeals.reduce((sum, d) => sum + d.amount, 0);
-    const wonDealsValue = deals.filter((d) => d.stage === "WON").reduce((sum, d) => sum + d.amount, 0);
-
+    const openDealsValue = openDeals.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+    const wonDealsValue = deals.filter((d) => d.stage === "WON").reduce((sum, d) => sum + Number(d.amount || 0), 0);
     const now = new Date();
     const pendingFollowUps = followUps.filter((f) => f.status === "PENDING");
     const overdueFollowUps = pendingFollowUps.filter((f) => new Date(f.dueDate) < now);
@@ -92,7 +91,7 @@ export async function GET(request: Request) {
       const stageObj = pipelineStages.find((s) => s.id === d.stage);
       if (stageObj) {
         stageObj.count += 1;
-        stageObj.totalAmount += d.amount;
+        stageObj.totalAmount += Number(d.amount || 0);
       }
     }
 

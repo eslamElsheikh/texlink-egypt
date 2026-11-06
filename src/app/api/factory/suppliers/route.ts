@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       orderBy: { name: "asc" },
     });
 
-    const totalOutstanding = suppliers.reduce((s, sup) => s + (sup.outstandingBalance || 0), 0);
+    const totalOutstanding = suppliers.reduce((s, sup) => s + Number(sup.outstandingBalance || 0), 0);
 
     return NextResponse.json({
       suppliers,

@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     const totalRework = records.reduce((s, r) => s + r.reworkQuantity, 0);
     const totalReworkAccepted = records.reduce((s, r) => s + r.reworkAccepted, 0);
     const totalScrapped = records.reduce((s, r) => s + r.scrappedQuantity, 0);
-    const totalEstimatedLoss = records.reduce((s, r) => s + r.estimatedCost, 0);
+    const totalEstimatedLoss = records.reduce((s, r) => s + Number(r.estimatedCost || 0), 0);
 
     // Grouping by defect type for breakdown analytics
     const byDefectType: Record<string, number> = {};

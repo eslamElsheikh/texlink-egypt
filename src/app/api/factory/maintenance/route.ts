@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     ]);
 
     const totalDowntimeMinutes = tickets.reduce((s, t) => s + (t.downtimeMinutes || 0), 0);
-    const totalRepairCost = tickets.reduce((s, t) => s + (t.totalCost || 0), 0);
+    const totalRepairCost = tickets.reduce((s, t) => s + Number(t.totalCost || 0), 0);
     const openTicketsCount = tickets.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
 
     return NextResponse.json({

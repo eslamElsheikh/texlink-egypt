@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const totalValuation = items.reduce((s, i) => s + (i.totalValuation || i.currentStock * i.unitCost), 0);
+    const totalValuation = items.reduce((s, i) => s + Number(i.totalValuation || Number(i.currentStock) * Number(i.unitCost)), 0);
     const lowStockItems = items.filter((i) => i.currentStock <= i.minimumStock);
 
     return NextResponse.json({

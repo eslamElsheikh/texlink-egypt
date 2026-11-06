@@ -2,7 +2,7 @@
 # Strict $0.00 zero-cost configuration supporting Next.js 15 App Router & Prisma 6
 
 [build]
-  command = "npm run db:generate:postgres && npm run build"
+  command = "node scripts/build-netlify.js"
   publish = ".next"
 
 [[plugins]]

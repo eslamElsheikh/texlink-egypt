@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const totalSalaryPayroll = employees.reduce((s, e) => s + (e.monthlySalary || 0), 0);
+    const totalSalaryPayroll = employees.reduce((s, e) => s + Number(e.monthlySalary || 0), 0);
     const activeCount = employees.filter((e) => e.isActive).length;
 
     return NextResponse.json({

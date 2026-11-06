@@ -27,8 +27,8 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const totalPipelineValue = deals.filter((d) => d.stage !== "LOST").reduce((s, d) => s + d.amount, 0);
-    const wonValue = deals.filter((d) => d.stage === "WON").reduce((s, d) => s + d.amount, 0);
+    const totalPipelineValue = deals.filter((d) => d.stage !== "LOST").reduce((s, d) => s + Number(d.amount || 0), 0);
+    const wonValue = deals.filter((d) => d.stage === "WON").reduce((s, d) => s + Number(d.amount || 0), 0);
 
     return NextResponse.json({
       deals,

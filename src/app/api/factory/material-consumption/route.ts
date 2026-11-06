@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const totalConsumedCost = consumptions.reduce((s, c) => s + (c.totalCost || 0), 0);
+    const totalConsumedCost = consumptions.reduce((s, c) => s + Number(c.totalCost || 0), 0);
 
     return NextResponse.json({
       consumptions,
