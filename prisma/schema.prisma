@@ -20,14 +20,15 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  factoryProfile     FactoryProfile?
-  buyerProfile       BuyerProfile?
-  rfqs               Rfq[]
-  ordersAsBuyer      Order[]          @relation("BuyerOrders")
-  sentMessages       Message[]        @relation("SentMessages")
-  reviews            Review[]         @relation("UserReviews")
-  notifications      Notification[]
-  auditLogs          AuditLog[]
+  factoryProfile       FactoryProfile?
+  buyerProfile         BuyerProfile?
+  rfqs                 Rfq[]
+  ordersAsBuyer        Order[]          @relation("BuyerOrders")
+  sentMessages         Message[]        @relation("SentMessages")
+  reviews              Review[]         @relation("UserReviews")
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  conversationsAsBuyer Conversation[]   @relation("BuyerConversations")
 }
 
 model FactoryProfile {
@@ -65,6 +66,7 @@ model FactoryProfile {
   quotes             Quote[]
   orders             Order[]          @relation("FactoryOrders")
   reviewsReceived    Review[]         @relation("FactoryReviews")
+  conversations      Conversation[]
 }
 
 model FactoryDocument {
@@ -260,9 +262,11 @@ model Conversation {
   lastMessageAt DateTime  @default(now())
   createdAt     DateTime  @default(now())
 
-  rfq           Rfq?      @relation(fields: [rfqId], references: [id])
-  order         Order?    @relation(fields: [orderId], references: [id])
-  quote         Quote?    @relation(fields: [quoteId], references: [id])
+  buyer         User           @relation("BuyerConversations", fields: [buyerId], references: [id], onDelete: Cascade)
+  factory       FactoryProfile @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  rfq           Rfq?           @relation(fields: [rfqId], references: [id])
+  order         Order?         @relation(fields: [orderId], references: [id])
+  quote         Quote?         @relation(fields: [quoteId], references: [id])
   messages      Message[]
 }
 
