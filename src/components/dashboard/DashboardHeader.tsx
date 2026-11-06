@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { NotificationDropdown } from "./NotificationDropdown";
 import { DashboardUser } from "./DashboardSidebar";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import Link from "next/link";
 
 interface DashboardHeaderProps {
@@ -112,9 +113,11 @@ export function DashboardHeader({
         </form>
       </div>
 
-      {/* Left side: Role Switcher, Notifications, Profile Menu */}
+      {/* Left side: Workspace Switcher, Role Switcher, Notifications, Profile Menu */}
       <div className="flex items-center gap-3">
-        {/* Quick Role Switcher Chip for multi-role accounts */}
+        {/* Persistent Workspace Switcher (Factory OS, CRM Sales, Marketplace) */}
+        <WorkspaceSwitcher user={user} currentRole={currentRole} variant="header" />
+
         {user.isFactory && user.isBuyer && currentRole !== "ADMIN" && (
           <div className="hidden sm:flex items-center gap-1.5 bg-[#F5F7FB] border border-[#E5EAF2] p-1 rounded-xl text-xs">
             <span className="text-slate-500 font-bold px-2">الوضع الحالي:</span>

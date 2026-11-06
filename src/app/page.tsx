@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Hero } from "@/components/home/Hero";
 import { DualActionCards } from "@/components/home/DualActionCards";
+import { HowItWorksDualSection } from "@/components/home/HowItWorksDualSection";
 import { FeaturedFactoriesSection } from "@/components/home/FeaturedFactoriesSection";
 import { LatestRfqsSection } from "@/components/home/LatestRfqsSection";
 import { TrustBar } from "@/components/home/TrustBar";
@@ -54,7 +55,10 @@ export default async function HomePage() {
 
   try {
     const dbFactories = await prisma.factoryProfile.findMany({
-      where: { verificationStatus: "VERIFIED" },
+      where: {
+        verificationStatus: "VERIFIED",
+        settings: { marketplaceEnabled: true },
+      },
       orderBy: [{ featured: "desc" }, { rating: "desc" }],
       take: 3,
     });
@@ -128,6 +132,8 @@ export default async function HomePage() {
         {/* 4. Dual Action Cards: For Buyers & For Factories */}
         <DualActionCards />
 
+        {/* 4.1 How TexLink Works: Dedicated Buyer and Factory Paths */}
+        <HowItWorksDualSection />
         {/* 5. Featured Factories & Latest RFQs (Matching Screenshot Layout) */}
         <section className="py-6">
           <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-6">

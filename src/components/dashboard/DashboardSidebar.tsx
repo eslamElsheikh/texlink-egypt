@@ -25,7 +25,21 @@ import {
   Scale,
   BarChart3,
   User,
+  Wrench,
+  AlertTriangle,
+  Boxes,
+  Scissors,
+  ShoppingBag,
+  DollarSign,
+  Truck,
+  Cpu,
+  Calculator,
+  Factory,
+  TrendingUp,
+  UserPlus,
+  CheckSquare,
 } from "lucide-react";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export interface DashboardUser {
   id: string;
@@ -37,6 +51,8 @@ export interface DashboardUser {
   isFactory: boolean;
   isBuyer: boolean;
   factorySlug?: string | null;
+  marketplaceEnabled?: boolean;
+  usageMode?: string;
 }
 
 interface DashboardSidebarProps {
@@ -153,20 +169,118 @@ export function DashboardSidebar({
       ];
     }
 
-    if (currentRole === "FACTORY") {
+    // 1. CRM Workspace Navigation (/crm/*)
+    if (pathname.startsWith("/crm")) {
       return [
         {
-          label: "إدارة المصنع",
+          label: "نظرة عامة والصفقات",
           items: [
             {
-              title: "الرئيسية",
-              href: "/factory/dashboard",
+              title: "لوحة تحكم CRM",
+              href: "/crm/dashboard",
               icon: LayoutDashboard,
             },
             {
-              title: "الطلبات المناسبة (RFQ)",
+              title: "خط سير الصفقات (Pipeline)",
+              href: "/crm/pipeline",
+              icon: TrendingUp,
+            },
+          ],
+        },
+        {
+          label: "إدارة العملاء والفرص",
+          items: [
+            {
+              title: "العملاء والشركات",
+              href: "/crm/customers",
+              icon: Users,
+            },
+            {
+              title: "العملاء المحتملون (Leads)",
+              href: "/crm/leads",
+              icon: UserPlus,
+            },
+            {
+              title: "عروض الأسعار والمقايسات",
+              href: "/crm/quotations",
+              icon: FileText,
+            },
+          ],
+        },
+        {
+          label: "المتابعات والتواصل",
+          items: [
+            {
+              title: "المهام والتذكيرات",
+              href: "/crm/follow-ups",
+              icon: CheckSquare,
+            },
+            {
+              title: "سجل الأنشطة والمكالمات",
+              href: "/crm/activities",
+              icon: Clock,
+            },
+            {
+              title: "طلبات عملاء السوق",
+              href: "/crm/marketplace-requests",
+              icon: ShoppingBag,
+            },
+            {
+              title: "المحادثات والرسائل",
+              href: "/messages",
+              icon: MessageSquare,
+              badge: unreadCount > 0 ? unreadCount : undefined,
+            },
+          ],
+        },
+        {
+          label: "التقارير والإعدادات",
+          items: [
+            {
+              title: "تقارير المبيعات وCRM",
+              href: "/crm/reports",
+              icon: BarChart3,
+            },
+            {
+              title: "إعدادات CRM",
+              href: "/crm/settings",
+              icon: Settings,
+            },
+          ],
+        },
+      ];
+    }
+
+    // 2. Marketplace Workspace Navigation (/marketplace/*, /factory/rfqs, /factory/quotes, /factory/orders)
+    if (
+      pathname.startsWith("/marketplace") ||
+      pathname.startsWith("/factory/rfqs") ||
+      pathname.startsWith("/factory/quotes") ||
+      pathname.startsWith("/factory/orders")
+    ) {
+      return [
+        {
+          label: "سوق تكس لينك التجاري B2B",
+          items: [
+            {
+              title: "لوحة تحكم السوق",
+              href: "/marketplace/dashboard",
+              icon: LayoutDashboard,
+            },
+            {
+              title: "طلبات الشراء وRFQs",
               href: "/factory/rfqs",
               icon: FileText,
+            },
+            {
+              title: "صفقات وأوامر السوق",
+              href: "/factory/orders",
+              icon: Truck,
+            },
+            {
+              title: "كتالوج المنتجات الجاهزة",
+              href: "/factory/products",
+              icon: Package,
             },
             {
               title: "عروض الأسعار المقدمة",
@@ -174,36 +288,136 @@ export function DashboardSidebar({
               icon: Clock,
             },
             {
-              title: "إدارة الإنتاج والطلبات",
-              href: "/factory/orders",
-              icon: CheckCircle2,
-            },
-          ],
-        },
-        {
-          label: "الكتالوج والملف",
-          items: [
-            {
-              title: "المنتجات الجاهزة",
-              href: "/factory/products",
-              icon: Package,
-            },
-            {
-              title: "ملف مصنعي العام",
-              href: user.factorySlug ? `/factories/${user.factorySlug}` : "/factories",
+              title: "دليل مصانع مصر",
+              href: "/factories",
               icon: Building2,
             },
             {
-              title: "الرسائل والمحادثات",
+              title: "المحادثات والتفاوض",
               href: "/messages",
               icon: MessageSquare,
               badge: unreadCount > 0 ? unreadCount : undefined,
             },
+          ],
+        },
+      ];
+    }
+
+    // 3. Factory Management Workspace Navigation (/factory/*)
+    if (currentRole === "FACTORY" || pathname.startsWith("/factory")) {
+      return [
+        {
+          label: "التشغيل والإنتاج",
+          items: [
             {
-              title: "معاينة الموقع (نافذة جديدة)",
-              href: "/",
-              icon: ExternalLink,
-              external: true,
+              title: "لوحة التحكم التشغيلية",
+              href: "/factory/dashboard",
+              icon: LayoutDashboard,
+            },
+            {
+              title: "إدارة الإنتاج والتشغيل",
+              href: "/factory/production",
+              icon: Layers,
+            },
+            {
+              title: "أوامر الإنتاج والدفعات",
+              href: "/factory/production-orders",
+              icon: CheckCircle2,
+            },
+            {
+              title: "الماكينات والمعدات",
+              href: "/factory/machines",
+              icon: Cpu,
+            },
+            {
+              title: "الأعطال والصيانة",
+              href: "/factory/maintenance",
+              icon: Wrench,
+            },
+            {
+              title: "الهالك والفاقد",
+              href: "/factory/waste",
+              icon: AlertTriangle,
+            },
+            {
+              title: "فحص الجودة",
+              href: "/factory/quality",
+              icon: ShieldCheck,
+            },
+          ],
+        },
+        {
+          label: "المخازن وسلاسل الإمداد",
+          items: [
+            {
+              title: "المخازن والخامات",
+              href: "/factory/inventory",
+              icon: Boxes,
+            },
+            {
+              title: "استهلاك الخامات",
+              href: "/factory/material-consumption",
+              icon: Scissors,
+            },
+            {
+              title: "الموردون",
+              href: "/factory/suppliers",
+              icon: ShoppingBag,
+            },
+            {
+              title: "أوامر الشراء والتوريد",
+              href: "/factory/purchases",
+              icon: Truck,
+            },
+          ],
+        },
+        {
+          label: "العمالة والتكاليف",
+          items: [
+            {
+              title: "العمال والموظفون",
+              href: "/factory/employees",
+              icon: Users,
+            },
+            {
+              title: "إدارة الورديات",
+              href: "/factory/shifts",
+              icon: Clock,
+            },
+            {
+              title: "الحضور والغياب",
+              href: "/factory/attendance",
+              icon: Clock,
+            },
+            {
+              title: "المصروفات التشغيلية",
+              href: "/factory/expenses",
+              icon: DollarSign,
+            },
+            {
+              title: "تكاليف أوامر الإنتاج",
+              href: "/factory/costs",
+              icon: Calculator,
+            },
+            {
+              title: "التقارير والإحصائيات",
+              href: "/factory/reports",
+              icon: BarChart3,
+            },
+          ],
+        },
+        {
+          label: "الإعدادات والملف",
+          items: [
+            {
+              title: "ملف المصنع",
+              href: "/factory/profile",
+              icon: Building2,
+            },
+            {
+              title: "إعدادات المصنع",
+              href: "/factory/settings",
+              icon: Settings,
             },
           ],
         },
@@ -286,14 +500,18 @@ export function DashboardSidebar({
   return (
     <aside className="w-64 bg-white border-l border-[#E5EAF2] h-full flex flex-col justify-between select-none">
       <div>
-        {/* Brand Header: Logo points to role dashboard (does not kick admin out) */}
-        <div className="p-5 border-b border-[#F1F4F9] flex items-center justify-between">
+        {/* Brand Header */}
+        <div className="p-4 border-b border-[#F1F4F9] flex items-center justify-between">
           <Logo size="sm" href={roleConfig.logoHref} />
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
             {roleConfig.badge}
           </span>
         </div>
 
+        {/* Persistent Workspace Switcher (Factory OS / CRM / Marketplace) */}
+        <div className="p-3 border-b border-[#F1F4F9]">
+          <WorkspaceSwitcher user={user} currentRole={currentRole} variant="sidebar" />
+        </div>
         {/* Navigation Groups */}
         <div className="p-3 space-y-6 overflow-y-auto max-h-[calc(100vh-190px)]">
           {navSections.map((section, sIdx) => (

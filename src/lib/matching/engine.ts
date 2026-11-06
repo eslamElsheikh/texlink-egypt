@@ -16,7 +16,10 @@ export async function matchFactoriesForRfq(rfq: {
   targetGovernorate?: string | null;
 }): Promise<FactoryMatchResult[]> {
   const verifiedFactories = await prisma.factoryProfile.findMany({
-    where: { verificationStatus: "VERIFIED" },
+    where: {
+      verificationStatus: "VERIFIED",
+      settings: { marketplaceEnabled: true },
+    },
     include: { user: true },
   });
 

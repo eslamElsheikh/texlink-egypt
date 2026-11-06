@@ -1,0 +1,20 @@
+{
+  "name": "TexLink Factory OS — نظام تشغيل المصانع المصرية",
+  "short_name": "TexLink OS",
+  "description": "نظام إدارة عمليات وتصنيع التريكو والملابس الجاهزة في مصر",
+  "start_url": "/factory/floor",
+  "scope": "/factory/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14264A",
+  "theme_color": "#079B62",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

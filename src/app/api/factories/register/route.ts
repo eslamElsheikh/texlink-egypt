@@ -5,6 +5,9 @@ import { getCurrentUser, createSessionToken, setSessionCookie } from "@/lib/auth
 import { z } from "zod";
 
 const factoryRegisterSchema = z.object({
+  // Subscription / Usage Mode
+  usageMode: z.enum(["MANAGEMENT_ONLY", "FULL_ACCESS"]).default("FULL_ACCESS").optional(),
+
   // Account info (if visitor)
   name: z.string().min(2, "الاسم مطلوب"),
   email: z.string().email("البريد الإلكتروني غير صالح"),
@@ -121,7 +124,24 @@ export async function POST(req: Request) {
         specialties: JSON.stringify(data.specialties),
         machines: JSON.stringify(data.machines),
         fabrics: JSON.stringify(data.fabrics),
+        accountStatus: "ACTIVE",
         verificationStatus: "PENDING",
+      },
+    });
+
+    // Initialize FactorySettings according to chosen usageMode
+    const isManagementOnly = data.usageMode === "MANAGEMENT_ONLY";
+    await prisma.factorySettings.create({
+      data: {
+        factoryId: factory.id,
+        usageMode: data.usageMode || "FULL_ACCESS",
+        marketplaceEnabled: !isManagementOnly,
+        autoMatchEnabled: !isManagementOnly,
+        wasteThresholdPct: 5.0,
+        lowStockAlertThreshold: 50,
+        workingHoursPerShift: 8.0,
+        currency: "EGP",
+        traceabilityEnabled: true,
       },
     });
 
@@ -195,7 +215,9 @@ export async function POST(req: Request) {
         slug: factory.slug,
         nameAr: factory.nameAr,
         status: factory.verificationStatus,
+        usageMode: data.usageMode || "FULL_ACCESS",
       },
+      destination: "/factory/dashboard",
     });
   } catch (error) {
     console.error("Factory registration error:", error);

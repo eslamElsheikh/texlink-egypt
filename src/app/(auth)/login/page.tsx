@@ -37,18 +37,32 @@ function LoginForm() {
 
       setSuccessMsg("تم تسجيل الدخول بنجاح! جاري تحويلك...");
 
-      // Choose destination according to returnUrl or role
+      // Choose destination according to returnUrl or workspace role
       let destination = "/";
       if (returnUrl && returnUrl.startsWith("/")) {
         destination = returnUrl;
-      } else if (json.user?.role === "ADMIN") {
-        destination = "/admin/dashboard";
-      } else if (json.user?.role === "FACTORY") {
-        destination = "/factory/dashboard";
       } else {
-        destination = "/buyer/dashboard";
+        const role = (json.user?.role || "").toUpperCase();
+        if (role === "ADMIN" || role === "PLATFORM_ADMIN") {
+          destination = "/admin/dashboard";
+        } else if (role === "CRM_MANAGER" || role === "SALES_EMPLOYEE") {
+          destination = "/crm/dashboard";
+        } else if (role === "PRODUCTION_EMPLOYEE") {
+          destination = "/factory/production";
+        } else if (role === "WAREHOUSE_EMPLOYEE") {
+          destination = "/factory/inventory";
+        } else if (
+          role === "FACTORY" ||
+          role === "FACTORY_OWNER" ||
+          role === "FACTORY_ADMIN" ||
+          role === "FACTORY_MANAGER" ||
+          json.user?.isFactory
+        ) {
+          destination = "/factory/dashboard";
+        } else {
+          destination = "/buyer/dashboard";
+        }
       }
-
       // Hard redirect to ensure full cookie propagation
       setTimeout(() => {
         window.location.href = destination;

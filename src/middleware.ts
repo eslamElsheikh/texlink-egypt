@@ -8,14 +8,40 @@ const SECRET_KEY = new TextEncoder().encode(
 
 const COOKIE_NAME = "texlink_session";
 
-interface TokenPayload {
+export interface TokenPayload {
   id: string;
   email: string;
   name: string;
-  role: "ADMIN" | "FACTORY" | "BUYER";
+  role: string;
   isFactory: boolean;
   isBuyer: boolean;
   factorySlug?: string | null;
+}
+
+export function resolveUserDefaultLanding(role: string, isFactory: boolean): string {
+  const normalizedRole = role?.toUpperCase();
+  if (normalizedRole === "ADMIN" || normalizedRole === "PLATFORM_ADMIN") {
+    return "/admin/dashboard";
+  }
+  if (normalizedRole === "CRM_MANAGER" || normalizedRole === "SALES_EMPLOYEE") {
+    return "/crm/dashboard";
+  }
+  if (normalizedRole === "PRODUCTION_EMPLOYEE") {
+    return "/factory/production";
+  }
+  if (normalizedRole === "WAREHOUSE_EMPLOYEE") {
+    return "/factory/inventory";
+  }
+  if (
+    normalizedRole === "FACTORY" ||
+    normalizedRole === "FACTORY_OWNER" ||
+    normalizedRole === "FACTORY_ADMIN" ||
+    normalizedRole === "FACTORY_MANAGER" ||
+    isFactory
+  ) {
+    return "/factory/dashboard";
+  }
+  return "/buyer/dashboard";
 }
 
 export async function middleware(request: NextRequest) {
@@ -41,15 +67,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    if (session.role !== "ADMIN") {
-      // Authenticated non-admin: redirect to their authorized dashboard
-      if (session.isFactory) {
-        return NextResponse.redirect(new URL("/factory/dashboard", request.url));
-      }
-      return NextResponse.redirect(new URL("/buyer/dashboard", request.url));
+    if (session.role?.toUpperCase() !== "ADMIN" && session.role?.toUpperCase() !== "PLATFORM_ADMIN") {
+      const destination = resolveUserDefaultLanding(session.role, session.isFactory);
+      return NextResponse.redirect(new URL(destination, request.url));
     }
 
-    // Authenticated ADMIN: allow access
     return NextResponse.next();
   }
 
@@ -61,14 +83,63 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    if (session.role !== "ADMIN" && !session.isFactory) {
+    const normalizedRole = session.role?.toUpperCase();
+    const isAuthorizedForFactory =
+      normalizedRole === "ADMIN" ||
+      normalizedRole === "PLATFORM_ADMIN" ||
+      normalizedRole === "FACTORY" ||
+      normalizedRole === "FACTORY_OWNER" ||
+      normalizedRole === "FACTORY_ADMIN" ||
+      normalizedRole === "FACTORY_MANAGER" ||
+      normalizedRole === "PRODUCTION_EMPLOYEE" ||
+      normalizedRole === "WAREHOUSE_EMPLOYEE" ||
+      session.isFactory;
+
+    if (!isAuthorizedForFactory) {
       return NextResponse.redirect(new URL("/buyer/dashboard", request.url));
     }
 
     return NextResponse.next();
   }
 
-  // 3. Buyer Dashboard Routes (/buyer/*)
+  // 3. CRM Workspace Routes (/crm/*)
+  if (pathname.startsWith("/crm")) {
+    if (!session) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("returnUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const normalizedRole = session.role?.toUpperCase();
+    const isAuthorizedForCrm =
+      normalizedRole === "ADMIN" ||
+      normalizedRole === "PLATFORM_ADMIN" ||
+      normalizedRole === "CRM_MANAGER" ||
+      normalizedRole === "SALES_EMPLOYEE" ||
+      normalizedRole === "FACTORY" ||
+      normalizedRole === "FACTORY_OWNER" ||
+      normalizedRole === "FACTORY_ADMIN" ||
+      normalizedRole === "FACTORY_MANAGER" ||
+      session.isFactory;
+
+    if (!isAuthorizedForCrm) {
+      return NextResponse.redirect(new URL("/buyer/dashboard", request.url));
+    }
+
+    return NextResponse.next();
+  }
+  // 4. Marketplace Seller Workspace Routes (/marketplace/*)
+  if (pathname.startsWith("/marketplace")) {
+    if (!session) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("returnUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return NextResponse.next();
+  }
+
+  // 5. Buyer Dashboard Routes (/buyer/*)
   if (pathname.startsWith("/buyer")) {
     if (!session) {
       const loginUrl = new URL("/login", request.url);
@@ -86,6 +157,8 @@ export const config = {
   matcher: [
     "/admin/:path*",
     "/factory/:path*",
+    "/crm/:path*",
+    "/marketplace/:path*",
     "/buyer/:path*",
   ],
 };

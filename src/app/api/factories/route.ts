@@ -14,8 +14,9 @@ export async function GET(req: Request) {
       ? parseInt(searchParams.get("capacityMin")!, 10)
       : undefined;
 
-    const where: Prisma.FactoryProfileWhereInput = {};
-
+    const where: Prisma.FactoryProfileWhereInput = {
+      settings: { marketplaceEnabled: true },
+    };
     if (verifiedOnly) {
       where.verificationStatus = "VERIFIED";
     }

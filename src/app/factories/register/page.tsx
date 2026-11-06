@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -17,7 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-export default function FactoryRegisterPage() {
+function FactoryRegisterForm() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -25,6 +26,7 @@ export default function FactoryRegisterPage() {
 
   // Form State
   const [formData, setFormData] = useState({
+    usageMode: "FULL_ACCESS" as "MANAGEMENT_ONLY" | "FULL_ACCESS",
     // User credentials (for guest)
     name: "",
     email: "",
@@ -56,6 +58,14 @@ export default function FactoryRegisterPage() {
     industrialRegisterName: "",
   });
 
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const modeParam = searchParams.get("mode");
+    if (modeParam === "MANAGEMENT_ONLY" || modeParam === "FULL_ACCESS") {
+      setFormData((prev) => ({ ...prev, usageMode: modeParam }));
+    }
+  }, [searchParams]);
   const governorates = [
     "المحلة الكبرى",
     "شبرا الخيمة",
@@ -117,13 +127,13 @@ export default function FactoryRegisterPage() {
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const data = new FormData();
     data.append("file", file);
+    data.append("isPrivate", "true");
+    data.append("type", "DOCUMENT");
 
     try {
       const res = await fetch("/api/upload", {
-        method: "POST",
         body: data,
       });
       const json = await res.json();
@@ -248,19 +258,22 @@ export default function FactoryRegisterPage() {
               <CheckCircle2 className="w-10 h-10" />
             </div>
             <h2 className="text-2xl font-bold text-slate-900">
-              تم استلام طلب تسجيل مصنعك بنجاح!
+              {formData.usageMode === "MANAGEMENT_ONLY"
+                ? "تم تفعيل حساب مصنعك بنجاح!"
+                : "تم استلام طلب تسجيل مصنعك بنجاح!"}
             </h2>
             <p className="text-slate-600 text-sm max-w-md mx-auto leading-relaxed">
-              طلبك الآن في مرحلة التدقيق لدى إدارة تكس لينك للتأكد من السجل
-              التجاري والبيانات الصناعية. ستتلقى إشعاراً بالموافقة وتفعيل شارة
-              المصنع المعتمد خلال 24 ساعة عمل.
+              {formData.usageMode === "MANAGEMENT_ONLY"
+                ? "مساحة إدارة وتشغيل المصنع (Factory OS) مفعلة وجاهزة للعمل فوراً. يمكنك الآن البدء في تسجيل الماكينات، أوامر الإنتاج، المخازن، والعمالة."
+                : "طلبك الآن في مرحلة التدقيق لدى إدارة تكس لينك للتأكد من السجل التجاري والبيانات الصناعية. ستتلقى إشعاراً بالموافقة وتفعيل شارة المصنع المعتمد خلال 24 ساعة عمل."}
             </p>
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/factories"
-                className="bg-[#059669] hover:bg-[#047857] text-white font-medium px-6 py-2.5 rounded-xl transition-all"
+                href="/factory/dashboard"
+                className="bg-[#079B62] hover:bg-[#068453] text-white font-bold px-6 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
               >
-                تصفح دليل المصانع
+                <span>الدخول إلى لوحة تشغيل المصنع</span>
+                <ArrowLeft className="w-4 h-4" />
               </Link>
               <Link
                 href="/"
@@ -275,10 +288,95 @@ export default function FactoryRegisterPage() {
             {/* Step 1: Basic Info */}
             {step === 1 && (
               <div className="space-y-6">
-                <h3 className="text-lg font-bold text-slate-900 border-b pb-3">
+                {/* 1. Usage Mode Selection */}
+                <div className="space-y-3 pb-6 border-b border-slate-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <label className="block text-sm font-black text-slate-900">
+                      كيف ترغب في استخدام منصة تكس لينك؟ *
+                    </label>
+                    <span className="text-[11px] font-bold text-slate-400">يمكنك تعديل هذا الخيار لاحقاً من الإعدادات</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Mode A: Management Only */}
+                    <div
+                      onClick={() => setFormData((p) => ({ ...p, usageMode: "MANAGEMENT_ONLY" }))}
+                      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all space-y-2.5 ${
+                        formData.usageMode === "MANAGEMENT_ONLY"
+                          ? "border-[#079B62] bg-emerald-50/50 shadow-sm"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-[#079B62]">
+                          نظام إدارة المصنع فقط (Factory OS)
+                        </span>
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            formData.usageMode === "MANAGEMENT_ONLY"
+                              ? "border-[#079B62] bg-[#079B62]"
+                              : "border-slate-300"
+                          }`}
+                        >
+                          {formData.usageMode === "MANAGEMENT_ONLY" && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-slate-900">
+                        برنامج إدارة وتشغيل صناعي داخلي (ERP)
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        استخدام أدوات تشغيل المصنع، تسجيل الإنتاج، الماكينات، المخازن، والعمالة دون عرض منتجاتي أو الانضمام للسوق التجاري.
+                      </p>
+                      <span className="text-[10px] font-bold text-emerald-800 block pt-1">
+                        ✓ تفعيل فوري بدون انتظار مراجعة مستندات النشر
+                      </span>
+                    </div>
+
+                    {/* Mode B: Full Access */}
+                    <div
+                      onClick={() => setFormData((p) => ({ ...p, usageMode: "FULL_ACCESS" }))}
+                      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all space-y-2.5 ${
+                        formData.usageMode === "FULL_ACCESS"
+                          ? "border-[#542cb7] bg-purple-50/50 shadow-sm"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-[#542cb7]">
+                          إدارة المصنع + السوق التجاري B2B
+                        </span>
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            formData.usageMode === "FULL_ACCESS"
+                              ? "border-[#542cb7] bg-[#542cb7]"
+                              : "border-slate-300"
+                          }`}
+                        >
+                          {formData.usageMode === "FULL_ACCESS" && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-slate-900">
+                        إدارة مصنع متكاملة + فرص وطلبيات توريد
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        الحصول على أدوات إدارة المصنع بالإضافة لنشر كتالوج المنتجات، واستقبال طلبات الشراء والمقايسات (RFQs) من المشترين.
+                      </p>
+                      <span className="text-[10px] font-bold text-[#542cb7] block pt-1">
+                        ✓ يشمل مساحة إدارة العملاء والمبيعات (CRM)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <h3 className="text-base font-bold text-slate-900 border-b pb-3">
                   بيانات المصنع والتواصل الأساسية
                 </h3>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -730,5 +828,13 @@ export default function FactoryRegisterPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function FactoryRegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-sans">جاري التحميل...</div>}>
+      <FactoryRegisterForm />
+    </Suspense>
   );
 }

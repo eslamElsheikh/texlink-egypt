@@ -164,6 +164,73 @@ export async function POST(
       },
     });
 
+    // 7. Auto-link to Factory CRM Workspace
+    try {
+      let crmCustomer = await prisma.crmCustomer.findFirst({
+        where: {
+          factoryId: quote.factoryId,
+          OR: [
+            { buyerId: rfq.buyerId },
+            { phone: rfq.buyer.phone },
+          ],
+        },
+      });
+
+      if (!crmCustomer) {
+        crmCustomer = await prisma.crmCustomer.create({
+          data: {
+            factoryId: quote.factoryId,
+            buyerId: rfq.buyerId,
+            name: rfq.buyer.name,
+            phone: rfq.buyer.phone,
+            email: rfq.buyer.email,
+            source: "MARKETPLACE",
+            status: "ACTIVE",
+            totalSpend: order.totalAmount,
+            ordersCount: 1,
+            notes: `عميل سوق B2B من طلب RFQ: ${rfq.titleAr}`,
+          },
+        });
+      } else {
+        await prisma.crmCustomer.update({
+          where: { id: crmCustomer.id },
+          data: {
+            buyerId: rfq.buyerId,
+            totalSpend: { increment: order.totalAmount },
+            ordersCount: { increment: 1 },
+            lastContactDate: new Date(),
+          },
+        });
+      }
+
+      // Create won deal in CRM pipeline
+      const crmDeal = await prisma.crmDeal.create({
+        data: {
+          factoryId: quote.factoryId,
+          customerId: crmCustomer.id,
+          rfqId: rfq.id,
+          orderId: order.id,
+          title: `صفقة سوق B2B: ${rfq.titleAr}`,
+          stage: "WON",
+          amount: order.totalAmount,
+          notes: `تم اعتماد عرض السعر بنجاح برقم أمر تصنيع #${order.orderNumber}`,
+        },
+      });
+
+      // Log CRM Activity
+      await prisma.crmActivity.create({
+        data: {
+          factoryId: quote.factoryId,
+          customerId: crmCustomer.id,
+          dealId: crmDeal.id,
+          type: "MARKETPLACE_ORDER",
+          description: `اعتماد طلب شراء رسمي #${order.orderNumber} بقيمة ${order.totalAmount.toLocaleString()} ج.م من سوق تكس لينك`,
+          performedBy: rfq.buyer.name,
+        },
+      });
+    } catch (crmErr) {
+      console.error("Auto CRM link error (non-blocking):", crmErr);
+    }
     return NextResponse.json({
       success: true,
       order: {
