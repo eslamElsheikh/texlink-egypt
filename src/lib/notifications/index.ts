@@ -24,45 +24,45 @@ export class WhatsAppAdapter {
   static formatMessage(type: NotificationType, data: Record<string, string | number> = {}): string {
     switch (type) {
       case "RFQ_MATCH":
-        return `مرحباً بك من منصة TexLink Egypt 🧶
+        return `مرحباً بك من منصة سايسل مصر (Cysle Egypt) 🧶
 يوجد طلب تصنيع (RFQ) جديد يطابق تخصص مصنعك:
 • الموديل: ${data.productType || "ملابس وتريكو"}
 • الكمية: ${data.quantity || 100} قطعة
-• الرابط المباشر: ${data.url || "https://texlink-egypt.com"}
+• الرابط المباشر: ${data.url || "https://texlink-egypt.netlify.app"}
 بادر بتقديم عرض سعرك المناسب للمشتري.`;
 
       case "QUOTE_RECEIVED":
-        return `مرحباً بك من TexLink Egypt 📬
+        return `مرحباً بك من سايسل مصر (Cysle Egypt) 📬
 تم استلام عرض سعر جديد على طلبك: "${data.rfqTitle || "طلب تصنيع"}"
 • مقدم العرض: ${data.factoryName || "مصنع معتمد"}
 • السعر للقطعة: ${data.unitPrice || 0} ج.م
 • القيمة الإجمالية: ${data.totalAmount || 0} ج.م
 لمقارنة العروض وقبول الأنسب:
-${data.url || "https://texlink-egypt.com"}`;
+${data.url || "https://texlink-egypt.netlify.app"}`;
 
       case "QUOTE_ACCEPTED":
-        return `🎉 مبروك من منصة TexLink Egypt!
+        return `🎉 مبروك من منصة سايسل مصر (Cysle Egypt)!
 تم اعتماد وقبول عرض سعرك رسمياً!
 • رقم أمر التصنيع: #${data.orderNumber || ""}
 • القيمة الإجمالية: ${data.totalAmount || 0} ج.م
 تم فتح بيانات التواصل المباشر مع المشتري للتنسيق وبدء التشغيل:
-${data.url || "https://texlink-egypt.com"}`;
+${data.url || "https://texlink-egypt.netlify.app"}`;
 
       case "ORDER_STATUS":
-        return `تحديث حالة الطلب من TexLink Egypt 📦
+        return `تحديث حالة الطلب من سايسل مصر (Cysle Egypt) 📦
 أمر التصنيع رقم #${data.orderNumber || ""}:
 تم تحديث المرحلة إلى: "${data.stepTitle || "قيد التنفيذ"}"
 لمتابعة التفاصيل والجدول الزمني:
-${data.url || "https://texlink-egypt.com"}`;
+${data.url || "https://texlink-egypt.netlify.app"}`;
 
       case "NEW_MESSAGE":
-        return `رسالة جديدة من TexLink Egypt 💬
+        return `رسالة جديدة من سايسل مصر (Cysle Egypt) 💬
 لديك رسالة جديدة بخصوص الطلب #${data.orderNumber || data.rfqTitle || ""}:
 "${data.preview || "انقر للمعاينة"}"
-للرد مباشرة: ${data.url || "https://texlink-egypt.com"}`;
+للرد مباشرة: ${data.url || "https://texlink-egypt.netlify.app"}`;
 
       default:
-        return `إشعار من منصة TexLink Egypt: ${data.body || ""}`;
+        return `إشعار من منصة سايسل مصر: ${data.body || ""}`;
     }
   }
 
@@ -104,7 +104,7 @@ export class EmailAdapter {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "TexLink Egypt <notifications@texlink-egypt.com>",
+          from: "Cysle Egypt <notifications@cysle-egypt.com>",
           to: [to],
           subject,
           html: htmlContent,
@@ -154,7 +154,7 @@ export class NotificationService {
     if (params.recipientEmail) {
       const emailHtml = `
         <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; background: #f8fafc;">
-          <h2 style="color: #542cb7;">TexLink Egypt - إشعار جديد</h2>
+          <h2 style="color: #542cb7;">Cysle Egypt - إشعار جديد</h2>
           <h3 style="color: #0b1320;">${params.titleAr}</h3>
           <p style="font-size: 15px; line-height: 1.6;">${params.bodyAr}</p>
           ${

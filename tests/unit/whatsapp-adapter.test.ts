@@ -19,8 +19,7 @@ describe("WhatsApp Adapter & Message Templates", () => {
       quantity: 500,
       url: "https://texlink-egypt.com/rfqs/123",
     });
-
-    expect(text).toContain("TexLink Egypt");
+    expect(text).toContain("Cysle Egypt");
     expect(text).toContain("تيشيرت بولو");
     expect(text).toContain("500 قطعة");
     expect(text).toContain("https://texlink-egypt.com/rfqs/123");

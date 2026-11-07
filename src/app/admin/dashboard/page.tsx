@@ -160,7 +160,7 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-[#17233F] tracking-tight">
-            مرحباً بك في لوحة إدارة TexLink 👋
+            مرحباً بك في لوحة إدارة Cysle 👋
           </h1>
           <p className="text-xs sm:text-sm text-[#718096] mt-1">
             تابع أداء المنصة وإدارة المصانع والمشترين وطلبات التصنيع.

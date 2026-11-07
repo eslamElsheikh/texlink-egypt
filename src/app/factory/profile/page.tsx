@@ -15,7 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
-
+import { ALL_GOVERNORATE_NAMES_AR, getIndustrialAreasForGovernorate } from "@/config/locations";
 export default function FactoryProfilePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -26,6 +26,7 @@ export default function FactoryProfilePage() {
   const [nameAr, setNameAr] = useState("");
   const [slug, setSlug] = useState("");
   const [governorate, setGovernorate] = useState("");
+  const [industrialArea, setIndustrialArea] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
@@ -60,8 +61,8 @@ export default function FactoryProfilePage() {
         setNameAr(f.nameAr || "");
         setSlug(f.slug || "");
         setGovernorate(f.governorate || "");
+        setIndustrialArea(f.industrialArea || "");
         setCity(f.city || "");
-        setAddress(f.address || "");
         setPhone(f.phone || "");
         setWhatsapp(f.whatsapp || "");
         setBioAr(f.bioAr || "");
@@ -121,6 +122,7 @@ export default function FactoryProfilePage() {
         body: JSON.stringify({
           nameAr,
           governorate,
+          industrialArea,
           city,
           address,
           phone,
@@ -198,18 +200,49 @@ export default function FactoryProfilePage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#079B62] focus:outline-none"
               />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">المحافظة / المنطقة الصناعية *</label>
-              <input
-                type="text"
+              <label className="block text-xs font-bold text-gray-700 mb-1">المحافظة (27 محافظة) *</label>
+              <select
                 value={governorate}
-                onChange={(e) => setGovernorate(e.target.value)}
+                onChange={(e) => {
+                  const newGov = e.target.value;
+                  const areas = getIndustrialAreasForGovernorate(newGov);
+                  setGovernorate(newGov);
+                  setIndustrialArea(areas.length > 0 ? areas[0].slug : "");
+                }}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-[#079B62] focus:outline-none"
-              />
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-[#079B62] focus:outline-none bg-white"
+              >
+                <option value="">اختر المحافظة</option>
+                {ALL_GOVERNORATE_NAMES_AR.map((gov) => (
+                  <option key={gov} value={gov}>
+                    {gov}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
+
+          {/* Industrial Area if available for governorate */}
+          {getIndustrialAreasForGovernorate(governorate).length > 0 && (
+            <div className="bg-emerald-50/60 border border-emerald-100 p-4 rounded-xl">
+              <label className="block text-xs font-bold text-emerald-950 mb-1">
+                المنطقة الصناعية المعتمدة في {governorate}
+              </label>
+              <select
+                value={industrialArea}
+                onChange={(e) => setIndustrialArea(e.target.value)}
+                className="w-full px-3 py-2 border border-emerald-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-[#079B62] focus:outline-none bg-white"
+              >
+                {getIndustrialAreasForGovernorate(governorate).map((a) => (
+                  <option key={a.slug} value={a.slug}>
+                    {a.nameAr}
+                  </option>
+                ))}
+                <option value="">منطقة أخرى بالمحافظة</option>
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

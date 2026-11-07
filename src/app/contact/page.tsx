@@ -31,7 +31,7 @@ export default function ContactPage() {
             <span>فريق خدمة العملاء والمصانع</span>
           </div>
           <h1 className="text-2xl md:text-4xl font-extrabold text-[#0b1320]">
-            تواصل مع فريق تكس لينك مصر
+            تواصل مع فريق سايسل مصر (Cysle)
           </h1>
           <p className="text-slate-600 text-xs md:text-sm max-w-lg mx-auto">
             نحن هنا لمساعدتك في نشر طلبات التصنيع، تسجيل مصنعك، أو حل أي استفسارات تجارية وفنية.
@@ -53,7 +53,7 @@ export default function ContactPage() {
                 تحدث مباشرة مع مستشاري المنصة للمساعدة في تجهيز مواصفات الـ RFQ أو التحقق من مستندات مصنعك.
               </p>
               <a
-                href="https://wa.me/201012345678?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%20TexLink%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%AA%D9%88%D8%A7%D8%B5%D9%84%20%D9%85%D8%B9%20%D9%81%D8%B1%D9%8A%D9%82%20%D8%A7%D9%84%D8%AF%D8%B9%D9%85"
+                href="https://wa.me/201012345678?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%20Cysle%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%AA%D9%88%D8%A7%D8%B5%D9%84%20%D9%85%D8%B9%20%D9%81%D8%B1%D9%8A%D9%82%20%D8%A7%D9%84%D8%AF%D8%B9%D9%85"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs py-2.5 px-4 rounded-xl inline-flex items-center gap-2 shadow-sm transition-all"
@@ -113,7 +113,7 @@ export default function ContactPage() {
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                 <h3 className="text-lg font-bold text-emerald-900">تم استلام رسالتك بنجاح!</h3>
                 <p className="text-xs text-emerald-700 leading-relaxed max-w-sm mx-auto">
-                  شكراً لتواصلك مع تكس لينك. سيقوم أحد مستشارينا بالرد على رسالتك خلال ساعتي عمل.
+                  شكراً لتواصلك مع سايسل مصر. سيقوم أحد مستشارينا بالرد على رسالتك خلال ساعتي عمل.
                 </p>
               </div>
             ) : (

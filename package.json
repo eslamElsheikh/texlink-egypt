@@ -13,6 +13,7 @@
     "db:migrate:deploy:postgres": "prisma migrate deploy --schema=prisma/schema.postgresql.prisma",
     "db:migrate:status:postgres": "prisma migrate status --schema=prisma/schema.postgresql.prisma",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:demo": "tsx prisma/seed-demo.ts",
     "test": "vitest run",
     "deploy:worker": "cd cloudflare-worker && npx wrangler deploy"
   },

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
+import { GOVERNORATES_BY_KEY, normalizeGovernorate } from "@/config/locations";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q") || "";
-    const governorate = searchParams.get("governorate") || "";
+    let rawGovernorate = searchParams.get("governorate") || "";
+    const area = searchParams.get("area") || "";
     const specialty = searchParams.get("specialty") || "";
     const fabric = searchParams.get("fabric") || "";
     const verifiedOnly = searchParams.get("verified") === "true";
@@ -14,8 +16,18 @@ export async function GET(req: Request) {
       ? parseInt(searchParams.get("capacityMin")!, 10)
       : undefined;
 
+    // Normalize governorate if slug or legacy name passed
+    let governorate = rawGovernorate;
+    if (governorate && GOVERNORATES_BY_KEY[governorate.toLowerCase()]) {
+      governorate = GOVERNORATES_BY_KEY[governorate.toLowerCase()].nameAr;
+    } else if (governorate) {
+      governorate = normalizeGovernorate(governorate) || governorate;
+    }
+
+    // Public directory strictly excludes isolated demo factories
     const where: Prisma.FactoryProfileWhereInput = {
       settings: { marketplaceEnabled: true },
+      isDemo: false,
     };
     if (verifiedOnly) {
       where.verificationStatus = "VERIFIED";
@@ -25,6 +37,13 @@ export async function GET(req: Request) {
       where.governorate = { contains: governorate };
     }
 
+    if (area) {
+      where.OR = [
+        { industrialArea: { contains: area } },
+        { address: { contains: area } },
+        { city: { contains: area } },
+      ];
+    }
     if (capacityMin) {
       where.monthlyCapacity = { gte: capacityMin };
     }
@@ -62,8 +81,8 @@ export async function GET(req: Request) {
       nameAr: f.nameAr,
       governorate: f.governorate,
       city: f.city,
+      industrialArea: f.industrialArea,
       bioAr: f.bioAr,
-      logoUrl: f.logoUrl,
       coverUrl: f.coverUrl,
       verificationStatus: f.verificationStatus,
       minOrderQuantity: f.minOrderQuantity,

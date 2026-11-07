@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { ALL_GOVERNORATE_NAMES_AR, getIndustrialAreasForGovernorate } from "@/config/locations";
 import {
   Building2,
   FileCheck,
@@ -35,8 +36,9 @@ function FactoryRegisterForm() {
 
     // Factory details
     factoryNameAr: "",
-    governorate: "المحلة الكبرى",
-    city: "",
+    governorate: "الدقهلية",
+    industrialArea: "mansoura-salamon",
+    city: "المنصورة",
     address: "",
     whatsapp: "",
     bioAr: "",
@@ -66,21 +68,7 @@ function FactoryRegisterForm() {
       setFormData((prev) => ({ ...prev, usageMode: modeParam }));
     }
   }, [searchParams]);
-  const governorates = [
-    "المحلة الكبرى",
-    "شبرا الخيمة",
-    "العاشر من رمضان",
-    "المنوفية",
-    "الإسكندرية",
-    "القاهرة",
-    "الجيزة",
-    "الشرقية",
-    "القليوبية",
-    "الغربية",
-    "بني سويف",
-    "بورسعيد",
-  ];
-
+  const governorates = ALL_GOVERNORATE_NAMES_AR;
   const availableSpecialties = [
     "تيشيرتات وبولو",
     "هوديز وسويت شيرت",
@@ -395,13 +383,19 @@ function FactoryRegisterForm() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      المحافظة أو المدينة الصناعية *
+                      المحافظة (اختر من الـ 27 محافظة مصرية) *
                     </label>
                     <select
                       value={formData.governorate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, governorate: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const newGov = e.target.value;
+                        const areas = getIndustrialAreasForGovernorate(newGov);
+                        setFormData({
+                          ...formData,
+                          governorate: newGov,
+                          industrialArea: areas.length > 0 ? areas[0].slug : "",
+                        });
+                      }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
                     >
                       {governorates.map((gov) => (
@@ -412,6 +406,28 @@ function FactoryRegisterForm() {
                     </select>
                   </div>
 
+                  {/* Hierarchical Industrial Area selection if available for governorate */}
+                  {getIndustrialAreasForGovernorate(formData.governorate).length > 0 && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        المنطقة الصناعية التابعة لمحافظة {formData.governorate}
+                      </label>
+                      <select
+                        value={formData.industrialArea}
+                        onChange={(e) =>
+                          setFormData({ ...formData, industrialArea: e.target.value })
+                        }
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                      >
+                        {getIndustrialAreasForGovernorate(formData.governorate).map((area) => (
+                          <option key={area.slug} value={area.slug}>
+                            {area.nameAr}
+                          </option>
+                        ))}
+                        <option value="">منطقة أخرى داخل المحافظة</option>
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
                       المنطقة الصناعية أو الحي *

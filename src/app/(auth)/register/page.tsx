@@ -64,7 +64,7 @@ export default function RegisterPage() {
           <div className="text-center space-y-2">
             <Logo className="justify-center" />
             <h1 className="text-xl font-bold text-slate-900 pt-2">
-              إنشاء حساب جديد على تكس لينك
+              إنشاء حساب جديد على منصة سايسل (Cysle)
             </h1>
             <p className="text-xs text-slate-500">
               انضم لأكبر شبكة تربط مصانع النسيج والتريكو المصرية بالمشترين

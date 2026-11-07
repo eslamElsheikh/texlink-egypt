@@ -19,7 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const factories = await prisma.factoryProfile.findMany({
-      where: { verificationStatus: "VERIFIED" },
+      where: { verificationStatus: "VERIFIED", isDemo: false },
       select: { slug: true, updatedAt: true },
     });
 
@@ -31,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     const products = await prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, factory: { isDemo: false } },
       select: { id: true, updatedAt: true },
     });
 

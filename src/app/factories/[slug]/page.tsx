@@ -23,7 +23,7 @@ import {
   Lock,
 } from "lucide-react";
 import Link from "next/link";
-
+import { INDUSTRIAL_AREAS_BY_SLUG } from "@/config/locations";
 interface ProductTier {
   minQuantity: number;
   maxQuantity: number | null;
@@ -58,6 +58,7 @@ interface FactoryDetail {
   slug: string;
   nameAr: string;
   governorate: string;
+  industrialArea?: string | null;
   city: string;
   address: string;
   bioAr: string;
@@ -200,9 +201,11 @@ export default function FactoryDetailPage({
                 <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pt-1">
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-[#542cb7]" />
-                    {factory.city} - {factory.governorate}
+                    <span>
+                      الموقع: {factory.governorate}
+                      {factory.industrialArea ? ` — ${INDUSTRIAL_AREAS_BY_SLUG[factory.industrialArea]?.nameAr || factory.industrialArea}` : ""}
+                    </span>
                   </span>
-                  <span>•</span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     تأسس عام {factory.establishedYear}

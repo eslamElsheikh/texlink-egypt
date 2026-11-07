@@ -29,8 +29,8 @@ export async function PATCH(request: Request) {
     const {
       nameAr,
       governorate,
+      industrialArea,
       city,
-      address,
       phone,
       whatsapp,
       bioAr,
@@ -44,8 +44,8 @@ export async function PATCH(request: Request) {
     const updateData: Record<string, unknown> = {};
     if (nameAr) updateData.nameAr = nameAr;
     if (governorate) updateData.governorate = governorate;
+    if (industrialArea !== undefined) updateData.industrialArea = industrialArea || null;
     if (city) updateData.city = city;
-    if (address) updateData.address = address;
     if (phone) updateData.phone = phone;
     if (whatsapp) updateData.whatsapp = whatsapp;
     if (bioAr) updateData.bioAr = bioAr;

@@ -58,6 +58,7 @@ export default async function HomePage() {
       where: {
         verificationStatus: "VERIFIED",
         settings: { marketplaceEnabled: true },
+        isDemo: false,
       },
       orderBy: [{ featured: "desc" }, { rating: "desc" }],
       take: 3,

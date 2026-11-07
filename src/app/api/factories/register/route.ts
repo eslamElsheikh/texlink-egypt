@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { getCurrentUser, createSessionToken, setSessionCookie } from "@/lib/auth/session";
 import { z } from "zod";
-
+import { normalizeGovernorate } from "@/config/locations";
 const factoryRegisterSchema = z.object({
   // Subscription / Usage Mode
   usageMode: z.enum(["MANAGEMENT_ONLY", "FULL_ACCESS"]).default("FULL_ACCESS").optional(),
@@ -17,6 +17,7 @@ const factoryRegisterSchema = z.object({
   // Factory info
   factoryNameAr: z.string().min(3, "اسم المصنع مطلوب"),
   governorate: z.string().min(2, "المحافظة مطلوبة"),
+  industrialArea: z.string().optional(),
   city: z.string().min(2, "المدينة أو المنطقة الصناعية مطلوبة"),
   address: z.string().min(5, "العنوان التفصيلي مطلوب"),
   whatsapp: z.string().min(10, "رقم الواتساب مطلوب"),
@@ -112,7 +113,8 @@ export async function POST(req: Request) {
         userId,
         nameAr: data.factoryNameAr,
         slug,
-        governorate: data.governorate,
+        governorate: normalizeGovernorate(data.governorate) || data.governorate,
+        industrialArea: data.industrialArea || null,
         city: data.city,
         address: data.address,
         phone: data.phone,

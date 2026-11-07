@@ -24,7 +24,7 @@ export function Logo({ className = "", variant = "dark", size = "md", href = "/"
             isLight ? "text-white" : "text-[#0b1320]"
           } text-xl md:text-2xl`}
         >
-          TexLink
+          Cysle
         </span>
         <span
           className={`text-xs md:text-sm font-semibold tracking-wider ${

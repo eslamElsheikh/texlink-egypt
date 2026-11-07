@@ -39,6 +39,8 @@ prisma/*.db
 storage/private/*
 !storage/private/.gitkeep
 
+cloudflare-worker/dist/
+.demo-credentials*.json
 # netlify build artifacts and cli state
 /.netlify/
 

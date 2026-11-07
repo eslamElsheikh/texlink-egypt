@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Building2, ShoppingCart, CheckCircle2, ArrowLeft } from "lucide-react";
 
 export function DualActionCards() {
@@ -10,14 +11,16 @@ export function DualActionCards() {
           {/* Card 1: For Buyers (للمشترين) */}
           <div className="bg-[#f5f3ff] border border-[#ddd6fe] rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
             {/* Visual Image */}
-            <div className="w-full sm:w-44 h-44 rounded-2xl overflow-hidden shrink-0 shadow-sm bg-white">
-              <img
-                src="https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=400&auto=format&fit=crop&q=80"
-                alt="ملابس وتيشيرتات تريكو وبولو"
-                className="w-full h-full object-cover"
+            <div className="w-full sm:w-44 h-44 rounded-2xl overflow-hidden shrink-0 shadow-sm bg-white relative">
+              <Image
+                src="/images/buyer-promo.jpg"
+                alt="ملابس وتيشيرتات تريكو وبولو معتمدة في مصر"
+                fill
+                sizes="(max-width: 640px) 100vw, 176px"
+                className="object-cover"
+                priority
               />
             </div>
-
             {/* Content */}
             <div className="flex-1 space-y-4 text-right">
               <div>
@@ -60,14 +63,16 @@ export function DualActionCards() {
           {/* Card 2: For Factories (للمصانع) */}
           <div className="bg-[#eefaf3] border border-[#bbf7d0] rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
             {/* Visual Image */}
-            <div className="w-full sm:w-44 h-44 rounded-2xl overflow-hidden shrink-0 shadow-sm bg-white">
-              <img
-                src="https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?w=400&auto=format&fit=crop&q=80"
-                alt="مصنع نسيج وتريكو حديث"
-                className="w-full h-full object-cover"
+            <div className="w-full sm:w-44 h-44 rounded-2xl overflow-hidden shrink-0 shadow-sm bg-white relative">
+              <Image
+                src="/images/factory-promo.jpg"
+                alt="مصنع نسيج وتريكو وماكينات تصنيع حديثة في مصر"
+                fill
+                sizes="(max-width: 640px) 100vw, 176px"
+                className="object-cover"
+                priority
               />
             </div>
-
             {/* Content */}
             <div className="flex-1 space-y-4 text-right">
               <div>

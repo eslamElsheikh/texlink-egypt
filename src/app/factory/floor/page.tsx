@@ -213,10 +213,9 @@ export default function ShopFloorPWAPage() {
               <span>صالة التشغيل السريعة</span>
               <span className="text-[10px] bg-[#079B62] px-1.5 py-0.5 rounded font-mono">PWA</span>
             </h1>
-            <p className="text-[10px] text-white/60">TexLink Factory Floor Supervisor Mode</p>
+            <p className="text-[10px] text-white/60">Cysle Factory Floor Supervisor Mode</p>
           </div>
         </div>
-
         <Link
           href="/factory/dashboard"
           className="text-xs font-bold text-white/80 hover:text-white bg-white/10 px-3 py-1.5 rounded-xl border border-white/15 transition flex items-center gap-1"

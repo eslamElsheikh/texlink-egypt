@@ -166,7 +166,7 @@ export function JobTrackingCard({
                   {factoryName}
                 </div>
                 <h1 className="text-xl font-black text-gray-900">بطاقة تتبع تشغيل القماش والملابس</h1>
-                <p className="text-xs text-gray-600">TexLink Factory OS — Industrial Tracking Traveler</p>
+                <p className="text-xs text-gray-600">Cysle Factory OS — Industrial Tracking Traveler</p>
                 <div className="pt-2 font-mono text-sm">
                   <span className="font-bold text-gray-500">كود الدفعة / اللوط: </span>
                   <span className="font-black text-[#5932A8] text-base bg-purple-50 px-2 py-0.5 rounded border border-purple-200">

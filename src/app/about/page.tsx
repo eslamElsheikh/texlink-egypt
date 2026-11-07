@@ -19,7 +19,7 @@ export default function AboutPage() {
               صناعة مصرية .. ريادة إقليمية
             </span>
             <h1 className="text-3xl md:text-5xl font-black">
-              عن منصة تكس لينك مصر (TexLink Egypt)
+              عن منصة سايسل مصر (Cysle Egypt)
             </h1>
             <p className="text-slate-300 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
               المنصة الرقمية المتخصصة في تحديث ورقمنة سلاسل إمداد قطاع التريكو والغزل والنسيج في مصر، وربط المصانع الوطنية بأكبر شبكة من المشترين وأصحاب العلامات التجارية.

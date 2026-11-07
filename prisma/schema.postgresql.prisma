@@ -43,6 +43,7 @@ model FactoryProfile {
   slug               String           @unique
   governorate        String
   city               String
+  industrialArea     String?          // Platform-managed industrial area slug e.g. "mansoura-salamon"
   address            String           // Street address (masked until quote accepted)
   phone              String           // Factory phone (masked until quote accepted)
   whatsapp           String           // WhatsApp (masked until quote accepted)
@@ -63,6 +64,7 @@ model FactoryProfile {
   fabrics            String           @db.Text // JSON string array e.g. ["قطن 100%", "ميلتون"]
   gallery            String           @default("[]") @db.Text
   featured           Boolean          @default(false)
+  isDemo             Boolean          @default(false) // Isolated demo factory flag
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -101,6 +103,9 @@ model FactoryProfile {
   crmDeals              CrmDeal[]
   crmFollowUps          CrmFollowUp[]
   crmActivities         CrmActivity[]
+  @@index([isDemo])
+  @@index([governorate])
+  @@index([industrialArea])
 }
 
 model FactoryDocument {

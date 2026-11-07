@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { Logo } from "../brand/Logo";
 import { MapPin, Phone, Mail, ShieldCheck, Heart } from "lucide-react";
-
+import { BRAND } from "@/config/brand";
 export function Footer() {
   return (
     <footer className="bg-[#0b1320] text-slate-300 pt-16 pb-8 border-t border-slate-800">
@@ -75,26 +75,51 @@ export function Footer() {
             <h4 className="text-white font-bold text-base mb-4">
               المناطق الصناعية
             </h4>
-            <ul className="space-y-2 text-sm text-slate-400">
-              <li className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-purple-400" />
-                <span>المحلة الكبرى (الغربية)</span>
+            <ul className="space-y-2.5 text-sm">
+              <li>
+                <Link
+                  href="/factories?governorate=dakahlia&area=mansoura-salamon"
+                  className="flex items-center gap-1.5 text-purple-300 hover:text-white transition-colors font-medium"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span>مصانع المنصورة – سلامون</span>
+                </Link>
               </li>
-              <li className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-purple-400" />
-                <span>شبرا الخيمة (القليوبية)</span>
+              <li>
+                <Link
+                  href="/factories?governorate=dakahlia&area=mansoura-tanamil"
+                  className="flex items-center gap-1.5 text-purple-300 hover:text-white transition-colors font-medium"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span>مصانع المنصورة – طنامل</span>
+                </Link>
               </li>
-              <li className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-purple-400" />
-                <span>العاشر من رمضان (الشرقية)</span>
+              <li>
+                <Link
+                  href="/factories?governorate=gharbia"
+                  className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>المحلة الكبرى (الغربية)</span>
+                </Link>
               </li>
-              <li className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-purple-400" />
-                <span>السادات وشبين الكوم (المنوفية)</span>
+              <li>
+                <Link
+                  href="/factories?governorate=qalyubia"
+                  className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>شبرا الخيمة (القليوبية)</span>
+                </Link>
               </li>
-              <li className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-purple-400" />
-                <span>برج العرب الجديدة (الإسكندرية)</span>
+              <li>
+                <Link
+                  href="/factories?governorate=sharqia"
+                  className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>العاشر من رمضان (الشرقية)</span>
+                </Link>
               </li>
             </ul>
           </div>
@@ -146,7 +171,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-1">
-            <span>© 2026 TexLink Egypt. صنع بكل فخر لدعم الصناعة المصرية</span>
+            <span>{BRAND.copyright}</span>
             <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 inline" />
           </div>
 

@@ -1,7 +1,7 @@
 {
-  "name": "TexLink Factory OS — نظام تشغيل المصانع المصرية",
-  "short_name": "TexLink OS",
-  "description": "نظام إدارة عمليات وتصنيع التريكو والملابس الجاهزة في مصر",
+  "name": "Cysle Factory OS — نظام تشغيل المصانع المصرية",
+  "short_name": "Cysle OS",
+  "description": "نظام إدارة عمليات وتصنيع التريكو والملابس الجاهزة في مصر - سايسل مصر",
   "start_url": "/factory/floor",
   "scope": "/factory/",
   "display": "standalone",
