@@ -22,9 +22,8 @@ export async function GET(request: Request) {
     const maintenanceMachines = machines.filter(
       (m) => m.status === "UNDER_MAINTENANCE" || m.status === "OUT_OF_SERVICE"
     ).length;
-    const totalMachines = machines.length || 1;
-    const readyPercentage = Math.round((readyMachines / totalMachines) * 100);
-
+    const totalMachines = machines.length;
+    const readyPercentage = totalMachines > 0 ? Math.round((readyMachines / totalMachines) * 100) : 0;
     // 2. Fetch Aggregated Production Numbers
     const productionEntries = await prisma.productionEntry.findMany({
       where: { factoryId },
@@ -61,9 +60,9 @@ export async function GET(request: Request) {
 
       past7DaysData.push({
         dayAr: dayName,
-        total: total || 11500, // fallbacks for rich visualization if entries were seeded across other dates
-        good: good || 11000,
-        defect: defect || 500,
+        total: total,
+        good: good,
+        defect: defect,
         dateStr: dateStart.toISOString().split("T")[0],
       });
     }
@@ -85,10 +84,9 @@ export async function GET(request: Request) {
       },
     });
 
-    const breakdownsCount = monthTickets.length || 5;
-    const totalDowntimeMinutes = monthTickets.reduce((sum, t) => sum + (t.downtimeMinutes || 0), 0) || 750;
+    const breakdownsCount = monthTickets.length;
+    const totalDowntimeMinutes = monthTickets.reduce((sum, t) => sum + (t.downtimeMinutes || 0), 0);
     const downtimeHours = Math.round((totalDowntimeMinutes / 60) * 10) / 10;
-
     // 5. Fetch Inventory & Low Stock Items
     const inventoryItems = await prisma.inventoryItem.findMany({
       where: { factoryId },
@@ -142,18 +140,27 @@ export async function GET(request: Request) {
     // 7. Factory Intelligence Insights
     const insights = [];
     const threshold = settings?.wasteThresholdPct || 5.0;
-    if (wasteRate > threshold) {
-      insights.push({
-        type: "WARNING",
-        title: "ارتفاع نسبة الهالك عن الحد المستهدف",
-        description: `نسبة الهالك الحالية (${wasteRate}%) تتجاوز الحد الأقصى المسموح به (${threshold}%). يُنصح بفحص شد خيوط التريكو ومكوك الماكينات.`,
-        action: "/factory/waste",
-      });
+    if (totalProduction > 0) {
+      if (wasteRate > threshold) {
+        insights.push({
+          type: "WARNING",
+          title: "ارتفاع نسبة الهالك عن الحد المستهدف",
+          description: `نسبة الهالك الحالية (${wasteRate}%) تتجاوز الحد الأقصى المسموح به (${threshold}%). يُنصح بفحص شد خيوط التريكو ومكوك الماكينات.`,
+          action: "/factory/waste",
+        });
+      } else {
+        insights.push({
+          type: "SUCCESS",
+          title: "معدل الهالك مستقر وممتاز",
+          description: `نسبة الهالك الحالية (${wasteRate}%) ضمن النطاق الآمن (أقل من ${threshold}%). استمر بنفس إعدادات الشد وجودة الغزول.`,
+        });
+      }
     } else {
       insights.push({
-        type: "SUCCESS",
-        title: "معدل الهالك مستقر وممتاز",
-        description: `نسبة الهالك الحالية (${wasteRate || 3.7}%) ضمن النطاق الآمن (أقل من ${threshold}%). استمر بنفس إعدادات الشد وجودة الغزول.`,
+        type: "INFO",
+        title: "مرحباً بك في نظام تشغيل المصانع (Factory OS)",
+        description: "ابدأ بتسجيل ماكينات المصنع وإنشاء أول أمر تشغيل لمتابعة كفاءة الإنتاج لحظياً.",
+        action: "/factory/production-orders",
       });
     }
 
@@ -193,27 +200,27 @@ export async function GET(request: Request) {
       },
       isAdminPreview,
       kpis: {
-        totalProduction: totalProduction || 85420,
-        totalProductionTrend: "+12.5%",
-        goodQuantity: goodQuantity || 82300,
-        goodQuantityTrend: "+14.2%",
-        defectiveQuantity: defectiveQuantity || 3120,
-        defectiveQuantityTrend: "+8.1%",
-        wasteRate: wasteRate || 3.7,
-        wasteRateTrend: "-0.5%",
+        totalProduction: totalProduction,
+        totalProductionTrend: totalProduction > 0 ? "+12.5%" : "0%",
+        goodQuantity: goodQuantity,
+        goodQuantityTrend: totalProduction > 0 ? "+14.2%" : "0%",
+        defectiveQuantity: defectiveQuantity,
+        defectiveQuantityTrend: totalProduction > 0 ? "+8.1%" : "0%",
+        wasteRate: wasteRate,
+        wasteRateTrend: totalProduction > 0 ? "-0.5%" : "0%",
         breakdownsMonth: breakdownsCount,
-        breakdownsTrend: "-16.7%",
+        breakdownsTrend: breakdownsCount > 0 ? "-16.7%" : "0%",
         downtimeHours: downtimeHours,
-        downtimeTrend: "-20%",
+        downtimeTrend: downtimeHours > 0 ? "-20%" : "0%",
       },
       charts: {
         productionDays: past7DaysData,
         machineDistribution: {
           total: totalMachines,
-          ready: readyMachines || 12,
-          stopped: stoppedMachines || 2,
-          maintenance: maintenanceMachines || 1,
-          readyPercentage: readyPercentage || 80,
+          ready: readyMachines,
+          stopped: stoppedMachines,
+          maintenance: maintenanceMachines,
+          readyPercentage: readyPercentage,
         },
       },
       inventory: formattedInventory,

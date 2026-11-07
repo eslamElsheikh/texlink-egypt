@@ -110,14 +110,15 @@ export default function FactoryDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<"30" | "7">("30");
-  const [user, setUser] = useState({
+  const [user, setUser] = useState<any>({
     id: "factory-user",
     name: "إدارة المصنع",
-    email: "elnasr@mahalla-textile.com",
-    role: "FACTORY" as const,
+    email: "",
+    role: "FACTORY",
     isFactory: true,
     isBuyer: false,
-    factorySlug: "el-nasr-tricot",
+    factorySlug: "",
+    verificationStatus: "PENDING",
   });
 
   const fetchDashboardData = async () => {
@@ -142,7 +143,8 @@ export default function FactoryDashboardPage() {
           setUser({
             ...meJson.user,
             role: "FACTORY",
-            factorySlug: json.factory?.slug || meJson.user.factorySlug || "el-nasr-tricot",
+            verificationStatus: json.factory?.verificationStatus || meJson.user.factoryProfile?.verificationStatus || "PENDING",
+            factorySlug: json.factory?.slug || meJson.user.factorySlug || "",
           });
         }
       }
@@ -217,8 +219,10 @@ export default function FactoryDashboardPage() {
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-medium text-emerald-300 border border-white/15">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {factory.nameAr} — معتمد وموثق ✓
+                <span className={`w-2 h-2 rounded-full ${factory.verificationStatus === "VERIFIED" ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                <span>
+                  {factory.nameAr} — {factory.verificationStatus === "VERIFIED" ? "معتمد وموثق ✓" : "قيد المراجعة والتوثيق ⏳"}
+                </span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
                 أهلاً بك في {factory.nameAr}
@@ -417,39 +421,58 @@ export default function FactoryDashboardPage() {
               </div>
             </div>
 
-            {/* Custom Dual Bar Chart */}
-            <div className="h-64 w-full flex items-end justify-between gap-2 pt-6 pb-2 px-2 border-b border-gray-100">
-              {charts.productionDays.map((d, idx) => {
-                const maxVal = 14000;
-                const totalHeightPct = Math.min(100, Math.round((d.total / maxVal) * 100));
-                const goodHeightPct = Math.min(100, Math.round((d.good / maxVal) * 100));
+            {/* Custom Dual Bar Chart or Empty State */}
+            {kpis.totalProduction === 0 ? (
+              <div className="h-64 flex flex-col items-center justify-center text-center p-6 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+                <Boxes className="w-10 h-10 text-slate-300 mb-2" />
+                <p className="text-sm font-bold text-slate-700">لا توجد سجلات إنتاج مسجلة حتى الآن</p>
+                <p className="text-xs text-slate-500 max-w-sm mt-1">
+                  قم بإنشاء أول أمر تشغيل لمصنعك وتسجيل يوميات صالة الإنتاج لبدء تحليل مؤشرات الكفاءة ونسب الهالك.
+                </p>
+                <Link
+                  href="/factory/production-orders"
+                  className="mt-4 px-4 py-2 bg-[#079B62] hover:bg-[#068453] text-white rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إنشاء أول أمر تشغيل</span>
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div className="h-64 w-full flex items-end justify-between gap-2 pt-6 pb-2 px-2 border-b border-gray-100">
+                  {charts.productionDays.map((d, idx) => {
+                    const maxVal = Math.max(14000, ...charts.productionDays.map((p) => p.total));
+                    const totalHeightPct = Math.min(100, Math.round((d.total / maxVal) * 100));
+                    const goodHeightPct = Math.min(100, Math.round((d.good / maxVal) * 100));
 
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
-                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-gray-900 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-20 shadow-lg">
-                      {d.dayAr}: {d.good.toLocaleString()} سليم من {d.total.toLocaleString()}
-                    </div>
+                    return (
+                      <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
+                        <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-gray-900 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-20 shadow-lg">
+                          {d.dayAr}: {d.good.toLocaleString()} سليم من {d.total.toLocaleString()}
+                        </div>
 
-                    <div className="w-full flex items-end justify-center gap-1.5 h-full">
-                      <div
-                        style={{ height: `${totalHeightPct}%` }}
-                        className="w-3.5 sm:w-5 bg-[#5932A8]/85 hover:bg-[#5932A8] rounded-t-md transition-all duration-300"
-                      />
-                      <div
-                        style={{ height: `${goodHeightPct}%` }}
-                        className="w-3.5 sm:w-5 bg-[#079B62] hover:bg-[#068453] rounded-t-md transition-all duration-300"
-                      />
-                    </div>
-                    <span className="text-[11px] text-gray-500 font-semibold mt-2">{d.dayAr}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-between pt-3 text-xs text-gray-400">
-              <span>0 قطعة</span>
-              <span>7,000 قطعة</span>
-              <span>14,000 قطعة (القدرة القصوى)</span>
-            </div>
+                        <div className="w-full flex items-end justify-center gap-1.5 h-full">
+                          <div
+                            style={{ height: `${totalHeightPct}%` }}
+                            className="w-3.5 sm:w-5 bg-[#5932A8]/85 hover:bg-[#5932A8] rounded-t-md transition-all duration-300"
+                          />
+                          <div
+                            style={{ height: `${goodHeightPct}%` }}
+                            className="w-3.5 sm:w-5 bg-[#079B62] hover:bg-[#068453] rounded-t-md transition-all duration-300"
+                          />
+                        </div>
+                        <span className="text-[11px] text-gray-500 font-semibold mt-2">{d.dayAr}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between pt-3 text-xs text-gray-400">
+                  <span>0 قطعة</span>
+                  <span>مؤشر الإنتاج الأسبوعي</span>
+                  <span>محدث لحظياً</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Donut Chart: حالة الماكينات */}
@@ -465,34 +488,51 @@ export default function FactoryDashboardPage() {
                 </Link>
               </div>
 
-              <div className="relative flex items-center justify-center my-6">
-                <div className="relative w-40 h-40">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-gray-100"
-                      strokeWidth="3.8"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className="text-[#079B62]"
-                      strokeDasharray={`${charts.machineDistribution.readyPercentage}, 100`}
-                      strokeWidth="3.8"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-2xl font-black text-gray-900">
-                      {charts.machineDistribution.readyPercentage}%
-                    </span>
-                    <span className="text-[10px] font-bold text-[#079B62]">جاهزة للعمل</span>
+              {charts.machineDistribution.total === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-slate-50/60 rounded-xl border border-dashed border-slate-200 my-4">
+                  <Wrench className="w-8 h-8 text-slate-300 mb-2" />
+                  <p className="text-sm font-bold text-slate-700">لا توجد ماكينات مسجلة</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                    أضف ماكينات ومعدات المصنع لبدء مراقبة الجاهزية وحالات التشغيل.
+                  </p>
+                  <Link
+                    href="/factory/machines"
+                    className="mt-3 px-3.5 py-1.5 bg-[#079B62] hover:bg-[#068453] text-white rounded-lg text-xs font-bold transition shadow-sm inline-flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>إضافة ماكينة</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="relative flex items-center justify-center my-6">
+                  <div className="relative w-40 h-40">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="text-gray-100"
+                        strokeWidth="3.8"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className="text-[#079B62]"
+                        strokeDasharray={`${charts.machineDistribution.readyPercentage}, 100`}
+                        strokeWidth="3.8"
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <span className="text-2xl font-black text-gray-900">
+                        {charts.machineDistribution.readyPercentage}%
+                      </span>
+                      <span className="text-[10px] font-bold text-[#079B62]">جاهزة للعمل</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="space-y-2.5 pt-4 border-t border-gray-100 text-xs">

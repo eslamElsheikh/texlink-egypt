@@ -176,8 +176,18 @@ export function DashboardHeader({
                 <span className="text-[11px] text-slate-500 block truncate">
                   {user.email}
                 </span>
-                <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-[#5932A8]">
-                  {currentRole === "ADMIN" ? "مدير المنصة" : currentRole === "FACTORY" ? "مصنع معتمد" : "مشتري / براند"}
+                <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded ${
+                  currentRole === "FACTORY" && user.verificationStatus !== "VERIFIED"
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-purple-50 text-[#5932A8]"
+                }`}>
+                  {currentRole === "ADMIN"
+                    ? "مدير المنصة"
+                    : currentRole === "FACTORY"
+                    ? user.verificationStatus === "VERIFIED"
+                      ? "مصنع معتمد ✓"
+                      : "قيد التوثيق ⏳"
+                    : "مشتري / براند"}
                 </span>
               </div>
 

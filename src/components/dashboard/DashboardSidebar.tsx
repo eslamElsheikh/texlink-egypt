@@ -53,8 +53,8 @@ export interface DashboardUser {
   factorySlug?: string | null;
   marketplaceEnabled?: boolean;
   usageMode?: string;
+  verificationStatus?: string;
 }
-
 interface DashboardSidebarProps {
   user: DashboardUser;
   currentRole: "ADMIN" | "FACTORY" | "BUYER";
@@ -84,7 +84,7 @@ export function DashboardSidebar({
     },
     FACTORY: {
       title: "لوحة تحكم المصنع",
-      badge: "مصنع معتمد",
+      badge: user.verificationStatus === "VERIFIED" ? "مصنع معتمد" : "قيد التوثيق",
       activeBg: "bg-[#E8F7F0] text-[#079B62] border-r-4 border-r-[#079B62]",
       activeIcon: "text-[#079B62]",
       logoHref: "/factory/dashboard",
