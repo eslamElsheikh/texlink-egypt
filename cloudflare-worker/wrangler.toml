@@ -1,0 +1,7 @@
+name = "texlink-egypt-bridge"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+UPSTREAM_ORIGIN = "https://texlink-egypt.netlify.app"
