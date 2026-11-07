@@ -10,8 +10,22 @@ export async function GET(
     const { id } = await params;
     const session = await getCurrentUser();
 
+    let targetId = id;
+    if (id === "rfq-1" || id === "rfq-2" || id === "rfq-3") {
+      const index = id === "rfq-1" ? 0 : id === "rfq-2" ? 1 : 2;
+      const matched = await prisma.rfq.findMany({
+        where: { status: "OPEN" },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+        select: { id: true },
+      });
+      if (matched[index]) {
+        targetId = matched[index].id;
+      }
+    }
+
     const rfq = await prisma.rfq.findUnique({
-      where: { id },
+      where: { id: targetId },
       include: {
         buyer: {
           select: {

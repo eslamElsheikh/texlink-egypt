@@ -132,9 +132,9 @@ export default {
       responseHeaders.set("Expires", "0");
     }
 
-    // Add Cloudflare Bridge indicator header
+    // Add Cloudflare Bridge indicator headers
+    responseHeaders.set("X-Cysle-Bridge", "Cloudflare-Workers-Egypt");
     responseHeaders.set("X-TexLink-Bridge", "Cloudflare-Workers-Egypt");
-
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { ALL_GOVERNORATE_NAMES_AR } from "@/config/locations";
 import {
   FileText,
   Search,
@@ -41,16 +42,7 @@ export default function RfqsPage() {
   const [governorate, setGovernorate] = useState("");
   const [status, setStatus] = useState("OPEN");
 
-  const governorates = [
-    "الكل",
-    "القاهرة",
-    "الجيزة",
-    "الإسكندرية",
-    "المحلة الكبرى",
-    "شبرا الخيمة",
-    "الشرقية",
-    "المنوفية",
-  ];
+  const governorates = ["الكل", ...ALL_GOVERNORATE_NAMES_AR];
 
   useEffect(() => {
     fetchRfqs();
