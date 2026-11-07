@@ -67,6 +67,10 @@ export async function POST(request: Request) {
     if (existing) {
       return NextResponse.json({ error: `كود العامل (${code}) مستخدم بالفعل في هذا المصنع` }, { status: 400 });
     }
+    const salary = monthlySalary ? parseFloat(String(monthlySalary)) : 0;
+    if (isNaN(salary) || salary < 0) {
+      return NextResponse.json({ error: "الراتب الشهري لا يمكن أن يكون رقماً سالباً" }, { status: 400 });
+    }
 
     const employee = await prisma.employee.create({
       data: {
@@ -75,7 +79,7 @@ export async function POST(request: Request) {
         name,
         jobTitle,
         phone: phone || null,
-        monthlySalary: monthlySalary ? parseFloat(String(monthlySalary)) : 0,
+        monthlySalary: salary,
         paymentType: paymentType || "MONTHLY",
         hiringDate: hiringDate ? new Date(hiringDate) : new Date(),
         isActive: true,

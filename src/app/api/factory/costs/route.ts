@@ -91,22 +91,22 @@ export async function POST(request: Request) {
     const computedMaterial =
       materialCost !== undefined
         ? parseFloat(String(materialCost))
-        : order.materialConsumptions.reduce((s, c) => s + Number(c.totalCost || 0), 0) || 50000;
+        : order.materialConsumptions.reduce((s, c) => s + Number(c.totalCost || 0), 0);
 
     const computedLabor =
-      directLaborCost !== undefined ? parseFloat(String(directLaborCost)) : 15000;
+      directLaborCost !== undefined ? parseFloat(String(directLaborCost)) : 0;
     const computedMachine =
-      machineCost !== undefined ? parseFloat(String(machineCost)) : 12000;
+      machineCost !== undefined ? parseFloat(String(machineCost)) : 0;
     const computedMaint =
-      maintenanceCost !== undefined ? parseFloat(String(maintenanceCost)) : 3000;
+      maintenanceCost !== undefined ? parseFloat(String(maintenanceCost)) : 0;
     const computedOverhead =
-      overheadCost !== undefined ? parseFloat(String(overheadCost)) : 8000;
+      overheadCost !== undefined ? parseFloat(String(overheadCost)) : 0;
 
     const totalCost =
       computedMaterial + computedLabor + computedMachine + computedMaint + computedOverhead;
 
-    const totalGood = order.productionEntries.reduce((s, e) => s + e.goodQuantity, 0) || order.targetQuantity || 1;
-    const costPerGoodUnit = Math.round((totalCost / totalGood) * 100) / 100;
+    const totalGood = order.productionEntries.reduce((s, e) => s + e.goodQuantity, 0);
+    const costPerGoodUnit = totalGood > 0 ? Math.round((totalCost / totalGood) * 100) / 100 : 0;
 
     const costRecord = await prisma.productionCost.upsert({
       where: { productionOrderId },

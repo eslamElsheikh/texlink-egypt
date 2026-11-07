@@ -33,6 +33,14 @@ export async function GET(
     if (!conversation) {
       return NextResponse.json({ error: "المحادثة غير موجودة" }, { status: 404 });
     }
+    // Strict Participant Authorization Check
+    const isBuyer = session.id === conversation.buyerId;
+    const isFactory = session.id === conversation.factory.userId || (session.factoryId && session.factoryId === conversation.factory.id);
+    const isAdmin = session.role === "ADMIN";
+
+    if (!isBuyer && !isFactory && !isAdmin) {
+      return NextResponse.json({ error: "غير مصرح لك بعرض هذه المحادثة" }, { status: 403 });
+    }
 
     const isContactAllowed =
       Boolean(conversation.orderId) ||

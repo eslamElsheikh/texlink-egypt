@@ -37,7 +37,7 @@ export async function POST(
 
     // Verify participant
     const isBuyer = session.id === conversation.buyerId;
-    const isFactory = session.id === conversation.factory.userId;
+    const isFactory = session.id === conversation.factory.userId || (session.factoryId && session.factoryId === conversation.factory.id);
     const isAdmin = session.role === "ADMIN";
 
     if (!isBuyer && !isFactory && !isAdmin) {

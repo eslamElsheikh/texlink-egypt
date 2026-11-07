@@ -46,7 +46,9 @@ export async function POST(request: Request) {
     }
 
     const calculatedHours = hours ? parseFloat(String(hours)) : 8.0;
-
+    if (isNaN(calculatedHours) || calculatedHours <= 0 || calculatedHours > 24) {
+      return NextResponse.json({ error: "عدد ساعات الوردية يجب أن يكون بين 1 و 24 ساعة" }, { status: 400 });
+    }
     const shift = await prisma.shift.create({
       data: {
         factoryId,

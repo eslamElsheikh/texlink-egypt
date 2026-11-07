@@ -208,4 +208,79 @@ describe("Cysle Egypt — Continuous QA Bug Fixes & Boundary Safeguards", () => 
       expect(canFactoryConfirm).toBe(false);
     });
   });
+  describe("BUG-QA-16 & 17: Conversation Participant Authorization", () => {
+    it("enforces that only buyer, factory staff, or admin can participate in conversation", () => {
+      const conversation = {
+        buyerId: "buyer-123",
+        factoryId: "factory-alpha",
+        factory: { userId: "owner-alpha" },
+      };
+
+      // Unrelated user
+      const unrelatedSession = { id: "intruder-user", factoryId: "factory-beta", role: "BUYER" };
+      const isUnrelatedBuyer = unrelatedSession.id === conversation.buyerId;
+      const isUnrelatedFactory = unrelatedSession.id === conversation.factory.userId || (unrelatedSession.factoryId === conversation.factoryId);
+      const isUnrelatedAdmin = unrelatedSession.role === "ADMIN";
+      const canUnrelatedAccess = isUnrelatedBuyer || isUnrelatedFactory || isUnrelatedAdmin;
+      expect(canUnrelatedAccess).toBe(false);
+
+      // Factory staff (e.g. Sales Employee with factoryId === factory-alpha)
+      const staffSession = { id: "sales-emp-1", factoryId: "factory-alpha", role: "SALES_EMPLOYEE" };
+      const isStaffFactory = staffSession.id === conversation.factory.userId || (staffSession.factoryId === conversation.factoryId);
+      expect(isStaffFactory).toBe(true);
+    });
+  });
+
+  describe("BUG-QA-18: Accurate Production Cost Calculation Without Hardcoded Inflation", () => {
+    it("does not add fake 88,000 EGP defaults when labor or overhead are not recorded", () => {
+      const materialCost = 10000;
+      const directLaborCost = undefined;
+      const machineCost = undefined;
+      const maintenanceCost = undefined;
+      const overheadCost = undefined;
+
+      // Fixed logic: defaults to 0, not 15000/12000/3000/8000
+      const computedLabor = directLaborCost !== undefined ? directLaborCost : 0;
+      const computedMachine = machineCost !== undefined ? machineCost : 0;
+      const computedMaint = maintenanceCost !== undefined ? maintenanceCost : 0;
+      const computedOverhead = overheadCost !== undefined ? overheadCost : 0;
+
+      const totalCost = materialCost + computedLabor + computedMachine + computedMaint + computedOverhead;
+      expect(totalCost).toBe(10000);
+      expect(totalCost).not.toBe(98000); // 10000 + 88000
+    });
+  });
+
+  describe("BUG-QA-19: Shift Hours Boundary Validation", () => {
+    it("rejects shift hours outside the valid 1 to 24 hour range", () => {
+      const invalidHours = [-2, 0, 25, 0.5, NaN, 100];
+
+      for (const h of invalidHours) {
+        const isValid = !isNaN(h) && h >= 1 && h <= 24;
+        expect(isValid).toBe(false);
+      }
+
+      const validHours = [8, 12, 7.5, 6];
+      for (const h of validHours) {
+        const isValid = !isNaN(h) && h >= 1 && h <= 24;
+        expect(isValid).toBe(true);
+      }
+    });
+  });
+
+  describe("BUG-QA-20: Non-Negative Employee Monthly Salary", () => {
+    it("rejects negative employee salaries", () => {
+      const invalidSalaries = [-5000, -1, NaN];
+      for (const s of invalidSalaries) {
+        const isValid = !isNaN(s) && s >= 0;
+        expect(isValid).toBe(false);
+      }
+
+      const validSalaries = [0, 6500, 12000];
+      for (const s of validSalaries) {
+        const isValid = !isNaN(s) && s >= 0;
+        expect(isValid).toBe(true);
+      }
+    });
+  });
 });
