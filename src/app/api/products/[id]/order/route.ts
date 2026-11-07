@@ -20,21 +20,14 @@ export async function POST(
     const { id: productId } = await params;
     const session = await getCurrentUser();
 
-    let buyerId: string;
-    if (session) {
-      buyerId = session.id;
-    } else {
-      const defaultBuyer = await prisma.user.findFirst({
-        where: { role: "BUYER" },
-      });
-      if (defaultBuyer) buyerId = defaultBuyer.id;
-      else {
-        return NextResponse.json(
-          { error: "يرجى تسجيل الدخول لتقديم طلب الشراء" },
-          { status: 401 }
-        );
-      }
+    if (!session) {
+      return NextResponse.json(
+        { error: "يرجى تسجيل الدخول كتاجر أو مشتري أولاً لتقديم طلب الشراء" },
+        { status: 401 }
+      );
     }
+
+    const buyerId = session.id;
 
     const product = await prisma.product.findUnique({
       where: { id: productId },

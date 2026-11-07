@@ -12,8 +12,8 @@ export async function GET(req: Request) {
 
     const where: Prisma.ProductWhereInput = {
       isActive: true,
+      factory: { isDemo: false },
     };
-
     if (categorySlug && categorySlug !== "ALL") {
       where.category = { slug: categorySlug };
     }

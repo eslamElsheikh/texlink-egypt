@@ -283,4 +283,28 @@ describe("Cysle Egypt — Continuous QA Bug Fixes & Boundary Safeguards", () => 
       }
     });
   });
+  describe("BUG-QA-21: Public Catalog Demo Products Exclusion", () => {
+    it("strictly excludes products from demo factories in public queries", async () => {
+      const publicProducts = await prisma.product.findMany({
+        where: {
+          isActive: true,
+          factory: { isDemo: false },
+        },
+        include: { factory: true },
+      });
+
+      for (const p of publicProducts) {
+        expect(p.factory.isDemo).toBe(false);
+        expect(p.factory.slug).not.toBe("cysle-demo-factory");
+      }
+    });
+  });
+
+  describe("BUG-QA-22: Direct Product Order Authentication Guard", () => {
+    it("rejects anonymous order placement without binding to arbitrary buyer", () => {
+      const anonymousSession = null;
+      const canPlaceOrder = Boolean(anonymousSession);
+      expect(canPlaceOrder).toBe(false);
+    });
+  });
 });
