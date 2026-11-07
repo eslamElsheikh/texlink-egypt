@@ -50,9 +50,9 @@ export async function POST(
       return NextResponse.json({ error: "طلب التصنيع غير موجود" }, { status: 404 });
     }
 
-    if (rfq.status !== "OPEN") {
+    if (rfq.status !== "OPEN" || (rfq.expiresAt && new Date(rfq.expiresAt) < new Date())) {
       return NextResponse.json(
-        { error: "عذراً، هذا الطلب مغلق أو تم قبول عرض سابق عليه" },
+        { error: "عذراً، هذا الطلب منتهي الصلاحية أو مغلق ولا يقبل عروضاً جديدة" },
         { status: 400 }
       );
     }

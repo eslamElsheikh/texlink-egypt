@@ -56,10 +56,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { customerId, title, stage, amount, expectedCloseDate, notes } = body;
 
-    if (!customerId || !title || !amount) {
-      return NextResponse.json({ error: "العميل، عنوان الصفقة والمبلغ التقديري حقول مطلوبة" }, { status: 400 });
+    const numericAmount = parseFloat(String(amount));
+    if (!customerId || !title || isNaN(numericAmount) || numericAmount <= 0) {
+      return NextResponse.json({ error: "العميل، عنوان الصفقة وقيمة موجبة مطلوبة" }, { status: 400 });
     }
-
     // Tenant isolation: verify customer belongs to this factory
     const customer = await prisma.crmCustomer.findFirst({
       where: { id: customerId, factoryId },
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         customerId,
         title,
         stage: stage || "DISCOVERY",
-        amount: parseFloat(String(amount)),
+        amount: numericAmount,
         expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : null,
         notes: notes || null,
       },

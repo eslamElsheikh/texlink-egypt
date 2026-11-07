@@ -59,6 +59,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "عنوان الفرصة، اسم جهة الاتصال ورقم الهاتف حقول مطلوبة" }, { status: 400 });
     }
 
+    // Tenant isolation: verify customer belongs to caller factory
+    if (customerId) {
+      const customer = await prisma.crmCustomer.findFirst({
+        where: { id: customerId, factoryId },
+      });
+      if (!customer) {
+        return NextResponse.json({ error: "العميل المحدد غير موجود أو غير تابع لمصنعك" }, { status: 404 });
+      }
+    }
+
+    let parsedValue: number | null = null;
+    if (estimatedValue !== undefined && estimatedValue !== null && estimatedValue !== "") {
+      parsedValue = parseFloat(String(estimatedValue));
+      if (isNaN(parsedValue) || parsedValue < 0) {
+        return NextResponse.json({ error: "القيمة التقديرية للفرصة يجب أن تكون رقماً موجباً" }, { status: 400 });
+      }
+    }
+
     const lead = await prisma.crmLead.create({
       data: {
         factoryId,
@@ -67,7 +85,7 @@ export async function POST(request: Request) {
         contactName,
         phone,
         email: email || null,
-        estimatedValue: estimatedValue ? parseFloat(String(estimatedValue)) : null,
+        estimatedValue: parsedValue,
         productInterest: productInterest || null,
         source: source || "DIRECT_CALL",
         status: status || "NEW",
@@ -106,6 +124,12 @@ export async function PATCH(request: Request) {
 
     // Action: Convert Lead to Customer & Deal
     if (action === "CONVERT_TO_DEAL") {
+      if (lead.status === "CONVERTED") {
+        return NextResponse.json(
+          { error: "هذه الفرصة تم تحويلها بالفعل إلى صفقة مسبقاً" },
+          { status: 400 }
+        );
+      }
       const result = await prisma.$transaction(async (tx) => {
         let customerId = lead.customerId;
 
