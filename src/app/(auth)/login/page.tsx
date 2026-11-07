@@ -145,50 +145,6 @@ function LoginForm() {
         </button>
       </form>
 
-      {/* Quick Demo Logins Helper */}
-      <div className="bg-purple-50/60 border border-purple-100 rounded-xl p-3.5 text-xs text-slate-700 space-y-2">
-        <span className="font-bold text-purple-900 block">
-          حسابات تجريبية سريعة (انقر للتعبئة التلقائية):
-        </span>
-        <div className="grid grid-cols-1 gap-1.5 font-medium text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              setEmail("admin@texlink-egypt.com");
-              setPassword("123456");
-            }}
-            className="text-right bg-white p-2 rounded-lg border border-purple-100 hover:border-purple-300 hover:bg-purple-50 transition-colors flex items-center justify-between"
-          >
-            <span>👑 إدارة المنصة (Admin)</span>
-            <span className="text-[11px] text-purple-700 font-mono">admin@texlink-egypt.com</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setEmail("buyer1@cairo-apparel.com");
-              setPassword("123456");
-            }}
-            className="text-right bg-white p-2 rounded-lg border border-purple-100 hover:border-purple-300 hover:bg-purple-50 transition-colors flex items-center justify-between"
-          >
-            <span>🛍️ مشتري / براند (Buyer)</span>
-            <span className="text-[11px] text-purple-700 font-mono">buyer1@cairo-apparel.com</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setEmail("elnasr@mahalla-textile.com");
-              setPassword("123456");
-            }}
-            className="text-right bg-white p-2 rounded-lg border border-purple-100 hover:border-purple-300 hover:bg-purple-50 transition-colors flex items-center justify-between"
-          >
-            <span>🏭 مصنع النصر للتريكو (Factory)</span>
-            <span className="text-[11px] text-purple-700 font-mono">elnasr@mahalla-textile.com</span>
-          </button>
-        </div>
-      </div>
-
       <div className="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
         <span>ليس لديك حساب بعد؟ </span>
         <Link
