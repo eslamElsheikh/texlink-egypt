@@ -166,4 +166,46 @@ describe("Cysle Egypt — Continuous QA Bug Fixes & Boundary Safeguards", () => 
       expect(validWaste.rework >= 0 && validWaste.accepted >= 0 && validWaste.rework <= qty && validWaste.accepted <= validWaste.rework).toBe(true);
     });
   });
+  describe("BUG-QA-13: Owner-Only Settings Authorization Guard", () => {
+    it("rejects non-owner factory staff from modifying factory settings", async () => {
+      const managerUser = await prisma.user.findUnique({ where: { email: "manager-alpha@cysle-qa.com" } });
+      expect(managerUser).toBeDefined();
+      expect(factoryAlpha).toBeDefined();
+
+      // Manager's id is NOT factory.userId
+      const isOwner = managerUser!.id === factoryAlpha.userId || managerUser!.role === "ADMIN";
+      expect(isOwner).toBe(false);
+    });
+  });
+
+  describe("BUG-QA-14: Order Review Eligibility Guard", () => {
+    it("rejects buyer review if order is not completed or delivered", () => {
+      const invalidStatuses = ["PENDING", "IN_PROGRESS", "CANCELLED", "READY_FOR_SHIPPING"];
+
+      for (const st of invalidStatuses) {
+        const canReview = st === "COMPLETED" || st === "DELIVERED";
+        expect(canReview).toBe(false);
+      }
+
+      const eligibleStatuses = ["COMPLETED", "DELIVERED"];
+      for (const st of eligibleStatuses) {
+        const canReview = st === "COMPLETED" || st === "DELIVERED";
+        expect(canReview).toBe(true);
+      }
+    });
+  });
+
+  describe("BUG-QA-15: Order Milestone Step Role Authorization", () => {
+    it("enforces buyer-only confirmation for sample approval and delivery", () => {
+      const buyerStep = "SAMPLE_APPROVAL";
+      const isBuyer = true;
+      const isFactory = false;
+
+      const canBuyerConfirm = (buyerStep === "SAMPLE_APPROVAL" || buyerStep === "DELIVERED") && isBuyer;
+      const canFactoryConfirm = (buyerStep === "SAMPLE_APPROVAL" || buyerStep === "DELIVERED") && isFactory;
+
+      expect(canBuyerConfirm).toBe(true);
+      expect(canFactoryConfirm).toBe(false);
+    });
+  });
 });

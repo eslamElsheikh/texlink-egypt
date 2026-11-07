@@ -36,7 +36,7 @@ export async function POST(
     }
 
     const isBuyer = session.id === order.buyerId;
-    const isFactory = session.id === order.factory.userId;
+    const isFactory = session.id === order.factory.userId || (session.factoryId && session.factoryId === order.factoryId);
     const isAdmin = session.role === "ADMIN";
 
     if (!isBuyer && !isFactory && !isAdmin) {
@@ -54,6 +54,16 @@ export async function POST(
     }
 
     const { step, status, notes } = parsed.data;
+
+    // Role step authorization:
+    // SAMPLE_APPROVAL and DELIVERED must be confirmed by Buyer (or Admin)
+    if ((step === "SAMPLE_APPROVAL" || step === "DELIVERED") && !isBuyer && !isAdmin) {
+      return NextResponse.json({ error: "تأكيد اعتماد العينة أو استلام الشحنة متاح للمشتري فقط" }, { status: 403 });
+    }
+    // SAMPLE, PRODUCTION, READY, SHIPPED must be updated by Factory (or Admin)
+    if ((step === "SAMPLE" || step === "PRODUCTION" || step === "READY" || step === "SHIPPED") && !isFactory && !isAdmin) {
+      return NextResponse.json({ error: "تحديث مراحل التصنيع والشحن متاح للمصنع المنفذ فقط" }, { status: 403 });
+    }
 
     // Find milestone record
     const milestone = await prisma.orderMilestone.findFirst({

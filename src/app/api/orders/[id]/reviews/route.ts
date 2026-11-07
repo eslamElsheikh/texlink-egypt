@@ -33,6 +33,12 @@ export async function POST(
       return NextResponse.json({ error: "التقييم متاح لمشتري الطلب فقط" }, { status: 403 });
     }
 
+    if (order.status !== "COMPLETED" && order.status !== "DELIVERED") {
+      return NextResponse.json(
+        { error: "يمكن تقييم المصنع فقط بعد اكتمال واستلام الطلبية بنجاح" },
+        { status: 400 }
+      );
+    }
     // Check if already reviewed
     const existing = await prisma.review.findFirst({
       where: { orderId, authorId: session.id },

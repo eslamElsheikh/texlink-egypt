@@ -42,8 +42,16 @@ export async function PATCH(request: Request) {
     if ("error" in ctx) {
       return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
-    const { factoryId } = ctx;
+    const { factoryId, factory, user } = ctx;
 
+    // Strictly restrict factory settings modification to the owner or platform admin
+    const isOwner = user.id === factory.userId || user.role === "ADMIN";
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "تعديل سياسات وتشغيل المصنع متاح لمالك المصنع فقط" },
+        { status: 403 }
+      );
+    }
     const body = await request.json();
     const {
       marketplaceEnabled,
