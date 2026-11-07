@@ -43,6 +43,19 @@ export async function POST(req: Request) {
       );
     }
 
+    let factoryId = user.factoryProfile?.id ?? user.factoryId ?? null;
+    let factorySlug = user.factoryProfile?.slug ?? null;
+
+    if (!factorySlug && factoryId) {
+      const employerFactory = await prisma.factoryProfile.findUnique({
+        where: { id: factoryId },
+        select: { slug: true },
+      });
+      if (employerFactory) {
+        factorySlug = employerFactory.slug;
+      }
+    }
+
     const sessionPayload = {
       id: user.id,
       email: user.email,
@@ -51,8 +64,8 @@ export async function POST(req: Request) {
       role: user.role as "BUYER" | "FACTORY" | "ADMIN",
       isFactory: user.isFactory,
       isBuyer: user.isBuyer,
-      factoryId: user.factoryProfile?.id ?? null,
-      factorySlug: user.factoryProfile?.slug ?? null,
+      factoryId,
+      factorySlug,
     };
 
     const token = await createSessionToken(sessionPayload);

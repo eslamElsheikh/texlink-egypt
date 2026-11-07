@@ -38,10 +38,17 @@ export async function resolveFactoryContext(
 
   // 1. Factory / CRM user resolution
   if (isFactoryRole) {
-    const factory = await prisma.factoryProfile.findUnique({
+    let factory = await prisma.factoryProfile.findUnique({
       where: { userId: session.id },
       include: { settings: true },
     });
+
+    if (!factory && session.factoryId) {
+      factory = await prisma.factoryProfile.findUnique({
+        where: { id: session.factoryId },
+        include: { settings: true },
+      });
+    }
 
     if (!factory) {
       return { error: "لم يتم العثور على ملف مصنع مرتبط بحسابك", status: 403 };
