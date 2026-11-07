@@ -113,6 +113,12 @@ export async function POST(request: Request) {
     }
     const rework = parseInt(String(reworkQuantity || 0), 10);
     const accepted = parseInt(String(reworkAccepted || 0), 10);
+    if (rework < 0 || accepted < 0 || rework > qty || accepted > rework) {
+      return NextResponse.json(
+        { error: "كميات إعادة التشغيل والمقبول منها يجب أن تكون غير سالبة ولا تتجاوز إجمالي الكمية المعيبة" },
+        { status: 400 }
+      );
+    }
     const scrap = parseInt(String(scrappedQuantity || qty - accepted), 10);
     const cost = parseFloat(String(estimatedCost || qty * 30));
 

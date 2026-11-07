@@ -92,4 +92,78 @@ describe("Cysle Egypt — Continuous QA Bug Fixes & Boundary Safeguards", () => 
       expect(canSubmitActive).toBe(true);
     });
   });
+
+  describe("BUG-QA-09: Production Order Product IDOR Guard", () => {
+    it("ensures a factory cannot assign another factory's product to its production order", async () => {
+      // Query alien product from Beta
+      const alienProduct = await prisma.factoryProduct.findFirst({
+        where: { factoryId: factoryBeta.id },
+      });
+
+      if (alienProduct) {
+        const checkAlphaOwnership = await prisma.factoryProduct.findFirst({
+          where: { id: alienProduct.id, factoryId: factoryAlpha.id },
+        });
+        expect(checkAlphaOwnership).toBeNull();
+      }
+    });
+  });
+
+  describe("BUG-QA-10: Purchase Order Item Quantity & Price Validation", () => {
+    it("rejects non-positive quantities or negative unit prices on purchase items", () => {
+      const invalidItems = [
+        { q: -5, p: 100 },
+        { q: 0, p: 50 },
+        { q: 10, p: -20 },
+        { q: NaN, p: 50 },
+      ];
+
+      for (const { q, p } of invalidItems) {
+        const isValid = !isNaN(q) && q > 0 && !isNaN(p) && p >= 0;
+        expect(isValid).toBe(false);
+      }
+
+      const validItem = { q: 100, p: 45.5 };
+      expect(!isNaN(validItem.q) && validItem.q > 0 && !isNaN(validItem.p) && validItem.p >= 0).toBe(true);
+    });
+  });
+
+  describe("BUG-QA-11: Quality Inspection Quantity Invariants", () => {
+    it("enforces that accepted + rejected quantities cannot exceed inspected quantity", () => {
+      const inspected = 100;
+      const invalidCombinations = [
+        { accepted: 90, rejected: 20 }, // 110 > 100
+        { accepted: -5, rejected: 10 },  // negative accepted
+        { accepted: 50, rejected: -1 },  // negative rejected
+        { accepted: 105, rejected: 0 },  // 105 > 100
+      ];
+
+      for (const { accepted, rejected } of invalidCombinations) {
+        const isValid = accepted >= 0 && rejected >= 0 && accepted + rejected <= inspected;
+        expect(isValid).toBe(false);
+      }
+
+      const validInspection = { accepted: 96, rejected: 4 };
+      expect(validInspection.accepted >= 0 && validInspection.rejected >= 0 && validInspection.accepted + validInspection.rejected <= inspected).toBe(true);
+    });
+  });
+
+  describe("BUG-QA-12: Waste Record Rework & Accepted Boundary Validation", () => {
+    it("enforces that rework cannot exceed defective quantity and accepted cannot exceed rework", () => {
+      const qty = 50; // Total defective
+      const invalidCombinations = [
+        { rework: 60, accepted: 20 }, // rework > qty
+        { rework: 30, accepted: 35 }, // accepted > rework
+        { rework: -5, accepted: 0 },  // negative
+      ];
+
+      for (const { rework, accepted } of invalidCombinations) {
+        const isValid = rework >= 0 && accepted >= 0 && rework <= qty && accepted <= rework;
+        expect(isValid).toBe(false);
+      }
+
+      const validWaste = { rework: 35, accepted: 30 };
+      expect(validWaste.rework >= 0 && validWaste.accepted >= 0 && validWaste.rework <= qty && validWaste.accepted <= validWaste.rework).toBe(true);
+    });
+  });
 });

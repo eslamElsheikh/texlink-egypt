@@ -116,9 +116,10 @@ export async function POST(request: Request) {
       const prod = await prisma.factoryProduct.findFirst({
         where: { id: productId, factoryId },
       });
-      if (prod) {
-        finalProductName = prod.name;
+      if (!prod) {
+        return NextResponse.json({ error: "المنتج المحدد غير موجود أو غير تابع لمصنعك" }, { status: 404 });
       }
+      finalProductName = prod.name;
     }
 
     const order = await prisma.productionOrder.create({

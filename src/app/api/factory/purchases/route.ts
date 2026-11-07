@@ -85,6 +85,11 @@ export async function POST(request: Request) {
 
     let calculatedTotal = 0;
     for (const it of items) {
+      const q = parseFloat(String(it.quantity || 0));
+      const p = parseFloat(String(it.unitPrice || 0));
+      if (isNaN(q) || q <= 0 || isNaN(p) || p < 0) {
+        return NextResponse.json({ error: "كمية الصنف يجب أن تكون أكبر من صفر وسعر الوحدة غير سالب" }, { status: 400 });
+      }
       if (it.inventoryItemId) {
         const invItem = await prisma.inventoryItem.findFirst({
           where: { id: it.inventoryItemId, factoryId },
@@ -94,7 +99,6 @@ export async function POST(request: Request) {
         }
       }
     }
-
     const formattedItems = items.map((it: { description: string; quantity: number; unitPrice: number; inventoryItemId?: string }) => {
       const q = parseFloat(String(it.quantity || 0));
       const p = parseFloat(String(it.unitPrice || 0));

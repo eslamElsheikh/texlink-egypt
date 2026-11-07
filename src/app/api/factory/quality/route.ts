@@ -78,6 +78,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "أمر الإنتاج والمرحلة وكمية الفحص حقول مطلوبة" }, { status: 400 });
     }
 
+    if (accepted < 0 || rejected < 0 || accepted + rejected > inspected) {
+      return NextResponse.json(
+        { error: "الكميات المقبولة والمرفوضة يجب أن تكون غير سالبة ولا تتجاوز إجمالي كمية الفحص" },
+        { status: 400 }
+      );
+    }
     // Tenant isolation: verify order belongs to this factory
     const order = await prisma.productionOrder.findFirst({
       where: { id: productionOrderId, factoryId },
