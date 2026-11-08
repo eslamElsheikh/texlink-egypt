@@ -61,11 +61,11 @@ export default function MarketplaceDashboardPage() {
   const [user, setUser] = useState({
     id: "marketplace-user",
     name: "إدارة مبيعات السوق",
-    email: "elnasr@mahalla-textile.com",
+    email: "",
     role: "FACTORY" as const,
     isFactory: true,
     isBuyer: false,
-    factorySlug: "el-nasr-tricot",
+    factorySlug: "",
   });
 
   useEffect(() => {

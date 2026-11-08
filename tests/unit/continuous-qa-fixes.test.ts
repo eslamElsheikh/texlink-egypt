@@ -307,4 +307,29 @@ describe("Cysle Egypt — Continuous QA Bug Fixes & Boundary Safeguards", () => 
       expect(canPlaceOrder).toBe(false);
     });
   });
+
+  describe("BUG-QA-23: Zero Hardcoded User Emails in Frontend Pages", () => {
+    it("ensures no dashboard page initializes with hardcoded demo emails in state", () => {
+      const fs = require("fs");
+      const path = require("path");
+
+      function scanDir(dir: string, found: string[] = []): string[] {
+        for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, item.name);
+          if (item.isDirectory()) {
+            scanDir(full, found);
+          } else if (item.name.endsWith(".tsx")) {
+            const content = fs.readFileSync(full, "utf8");
+            if (content.includes("elnasr@mahalla-textile.com")) {
+              found.push(full);
+            }
+          }
+        }
+        return found;
+      }
+
+      const leakedFiles = scanDir(path.join(process.cwd(), "src", "app"));
+      expect(leakedFiles).toHaveLength(0);
+    });
+  });
 });

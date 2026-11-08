@@ -80,11 +80,11 @@ export default function ProductionTrackingPage() {
   const [user, setUser] = useState({
     id: "factory-user",
     name: "إدارة المصنع",
-    email: "elnasr@mahalla-textile.com",
+    email: "",
     role: "FACTORY" as const,
     isFactory: true,
     isBuyer: false,
-    factorySlug: "el-nasr-tricot",
+    factorySlug: "",
   });
 
   const fetchData = async () => {

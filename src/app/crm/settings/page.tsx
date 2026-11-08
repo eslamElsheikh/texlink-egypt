@@ -13,11 +13,11 @@ export default function CrmSettingsPage() {
   const [user, setUser] = useState({
     id: "crm-user",
     name: "إدارة المبيعات",
-    email: "elnasr@mahalla-textile.com",
+    email: "",
     role: "FACTORY" as const,
     isFactory: true,
     isBuyer: false,
-    factorySlug: "el-nasr-tricot",
+    factorySlug: "",
   });
 
   const handleSave = (e: React.FormEvent) => {

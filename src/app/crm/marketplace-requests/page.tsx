@@ -41,11 +41,11 @@ export default function CrmMarketplaceRequestsPage() {
   const [user, setUser] = useState({
     id: "crm-user",
     name: "إدارة المبيعات",
-    email: "elnasr@mahalla-textile.com",
+    email: "",
     role: "FACTORY" as const,
     isFactory: true,
     isBuyer: false,
-    factorySlug: "el-nasr-tricot",
+    factorySlug: "",
   });
 
   const fetchRequests = async () => {
