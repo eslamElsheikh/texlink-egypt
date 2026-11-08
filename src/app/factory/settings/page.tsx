@@ -132,7 +132,7 @@ export default function FactorySettingsPage() {
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5 text-[#079B62]" />
-                <h2 className="text-sm font-bold text-gray-900">وضع الاشتراك والتكامل مع سوق تكس لينك التجاري B2B</h2>
+                <h2 className="text-sm font-bold text-gray-900">وضع الاشتراك والتكامل مع سوق سايسل مصر التجاري B2B</h2>
               </div>
               <span
                 className={`px-3 py-1 rounded-full text-xs font-black ${
@@ -176,7 +176,7 @@ export default function FactorySettingsPage() {
 
             <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
               <div>
-                <p className="text-sm font-bold text-gray-900">تفعيل المشاركة في سوق تكس لينك التجاري B2B</p>
+                <p className="text-sm font-bold text-gray-900">تفعيل المشاركة في سوق سايسل مصر التجاري B2B</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   عند إلغاء التفعيل، يعمل النظام كبرنامج ERP داخلي وتُخفى مساحة السوق وطلبات RFQ دون فقدان أي بيانات تشغيلية.
                 </p>

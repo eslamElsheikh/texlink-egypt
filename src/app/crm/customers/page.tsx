@@ -156,7 +156,7 @@ export default function CrmCustomersPage() {
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">سجل العملاء والشركات (CRM Customers)</h1>
             </div>
             <p className="text-gray-500 text-xs md:text-sm mt-1">
-              إدارة العملاء الاستراتيجيين، المشترين من سوق تكس لينك، سجل المشتريات، وتفاصيل الاتصال.
+              إدارة العملاء الاستراتيجيين، المشترين من سوق سايسل مصر، سجل المشتريات، وتفاصيل الاتصال.
             </p>
           </div>
 
@@ -263,7 +263,7 @@ export default function CrmCustomersPage() {
                               : "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {c.source === "MARKETPLACE" ? "سوق تكس لينك B2B" : c.source}
+                          {c.source === "MARKETPLACE" ? "سوق سايسل مصر B2B" : c.source}
                         </span>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">
@@ -396,7 +396,7 @@ export default function CrmCustomersPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#5932A8] focus:outline-none"
                     >
                       <option value="DIRECT">تواصل مباشر</option>
-                      <option value="MARKETPLACE">سوق تكس لينك B2B</option>
+                      <option value="MARKETPLACE">سوق سايسل مصر B2B</option>
                       <option value="REFERRAL">ترشيح وتوصية</option>
                       <option value="EXHIBITION">معرض تجاري</option>
                     </select>

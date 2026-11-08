@@ -9,7 +9,7 @@ import { BarChart3, TrendingUp, Users, DollarSign, FileText, Building2 } from "l
 export default function AdminAnalyticsPage() {
   const user = {
     id: "admin",
-    name: "إدارة منصة تكس لينك",
+    name: "إدارة منصة سايسل مصر",
     email: "admin@texlink-egypt.com",
     role: "ADMIN" as const,
     isFactory: false,

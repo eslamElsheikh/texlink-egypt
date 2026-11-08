@@ -125,7 +125,7 @@ export function JobTrackingCard({
     window.print();
   };
 
-  const qrPayload = `TEXLINK|ORD:${orderNumber}|BATCH:${batchNumber}|QTY:${targetQuantity}`;
+  const qrPayload = `CYSLE|ORD:${orderNumber}|BATCH:${batchNumber}|QTY:${targetQuantity}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

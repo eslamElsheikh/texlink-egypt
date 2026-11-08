@@ -16,43 +16,8 @@ interface FeaturedFactoriesProps {
   factories?: FactoryItem[];
 }
 
-export function FeaturedFactoriesSection({ factories }: FeaturedFactoriesProps) {
-  // Default data matching the design reference screenshot
-  const defaultFactories: FactoryItem[] = [
-    {
-      id: "f-1",
-      slug: "al-khalij-tricot",
-      nameAr: "مصنع الخليج للتريكو",
-      governorate: "المنوفية",
-      rating: 4.5,
-      specialtyText: "جميع أنواع التريكو",
-      imageUrl:
-        "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=400&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "f-2",
-      slug: "al-amal-garments",
-      nameAr: "مصنع الأمل للملابس",
-      governorate: "شبرا الخيمة",
-      rating: 4.6,
-      specialtyText: "تيشيرتات وبولو",
-      imageUrl:
-        "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=400&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "f-3",
-      slug: "el-nasr-tricot",
-      nameAr: "مصنع النصر للتريكو",
-      governorate: "المحلة الكبرى",
-      rating: 4.8,
-      specialtyText: "ملابس جاهزة - جودة عالية",
-      imageUrl:
-        "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&auto=format&fit=crop&q=80",
-    },
-  ];
-
-  const items = factories && factories.length > 0 ? factories : defaultFactories;
-
+export function FeaturedFactoriesSection({ factories = [] }: FeaturedFactoriesProps) {
+  const items = factories;
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
       {/* Header */}
@@ -71,9 +36,28 @@ export function FeaturedFactoriesSection({ factories }: FeaturedFactoriesProps) 
         </Link>
       </div>
 
-      {/* 3 Factory Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        {items.map((factory) => (
+      {/* 3 Factory Cards Grid or Empty State */}
+      {items.length === 0 ? (
+        <div className="py-8 text-center space-y-3">
+          <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+            <Crown className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-slate-800 text-sm font-bold">لا توجد مصانع مميزة منشورة حالياً</p>
+            <p className="text-slate-500 text-xs mt-0.5">
+              انضم كمنشأة معتمدة لتوثيق مصنعك في الدليل الصناعي المعتمد
+            </p>
+          </div>
+          <Link
+            href="/factories/register"
+            className="inline-flex items-center gap-1.5 bg-[#079B62] hover:bg-[#068453] text-white text-xs px-4 py-2 rounded-xl font-bold transition shadow-sm"
+          >
+            <span>سجل مصنعك الآن</span>
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          {items.map((factory) => (
           <div
             key={factory.id}
             className="border border-slate-200/80 rounded-xl overflow-hidden hover:shadow-md transition-all flex flex-col group bg-white"
@@ -119,8 +103,9 @@ export function FeaturedFactoriesSection({ factories }: FeaturedFactoriesProps) 
               </div>
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

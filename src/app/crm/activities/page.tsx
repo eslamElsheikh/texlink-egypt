@@ -128,7 +128,7 @@ export default function CrmActivitiesPage() {
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">سجل الأنشطة والتواصل مع العملاء</h1>
             </div>
             <p className="text-gray-500 text-xs md:text-sm mt-1">
-              تسجيل المكالمات الهاتفية، ملخصات الاجتماعات، والتفاعلات اللحظية القادمة من سوق تكس لينك.
+              تسجيل المكالمات الهاتفية، ملخصات الاجتماعات، والتفاعلات اللحظية القادمة من سوق سايسل مصر.
             </p>
           </div>
 

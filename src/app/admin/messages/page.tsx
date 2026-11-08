@@ -20,7 +20,7 @@ export default function AdminMessagesPage() {
 
   const user = {
     id: "admin",
-    name: "إدارة منصة تكس لينك",
+    name: "إدارة منصة سايسل مصر",
     email: "admin@texlink-egypt.com",
     role: "ADMIN" as const,
     isFactory: false,

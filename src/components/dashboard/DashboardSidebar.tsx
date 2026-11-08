@@ -260,7 +260,7 @@ export function DashboardSidebar({
     ) {
       return [
         {
-          label: "سوق تكس لينك التجاري B2B",
+          label: "سوق سايسل مصر التجاري B2B",
           items: [
             {
               title: "لوحة تحكم السوق",

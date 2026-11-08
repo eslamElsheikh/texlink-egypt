@@ -163,7 +163,7 @@ export function TopBar() {
           </a>
 
           <a
-            href="https://wa.me/201012345678?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%20TexLink%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D9%81%D8%B3%D8%A7%D8%B1"
+            href={`https://wa.me/201012345678?text=${encodeURIComponent("مرحباً سايسل مصر (Cysle Egypt)، أريد الاستفسار")}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 transition-colors font-medium"

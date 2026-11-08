@@ -166,7 +166,7 @@ export default function ReportsAndTraceabilityPage() {
   const handleExportCSV = () => {
     if (!data) return;
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "تقرير الإنتاج والتكاليف - مصنع تكس لينك\n";
+    csvContent += "تقرير الإنتاج والتكاليف - مصنع سايسل مصر\n";
     csvContent += `إجمالي الإنتاج,${data.summary.totalProduced}\n`;
     csvContent += `القطع السليمة,${data.summary.totalGood}\n`;
     csvContent += `القطع المعيبة,${data.summary.totalDefect}\n`;
@@ -180,7 +180,7 @@ export default function ReportsAndTraceabilityPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `texlink_factory_report_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `cysle_factory_report_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

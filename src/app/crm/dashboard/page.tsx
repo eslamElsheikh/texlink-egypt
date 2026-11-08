@@ -429,7 +429,7 @@ export default function CrmDashboardPage() {
                 className="w-full flex items-center justify-center gap-2 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition"
               >
                 <ShoppingBag className="w-4 h-4" />
-                استعراض طلبات سوق تكس لينك المربوطة
+                استعراض طلبات سوق سايسل مصر المربوطة
               </Link>
             </div>
           </div>
@@ -478,7 +478,7 @@ export default function CrmDashboardPage() {
                             : "bg-gray-100 text-gray-700"
                         }`}
                       >
-                        {c.source === "MARKETPLACE" ? "سوق تكس لينك B2B" : c.source}
+                        {c.source === "MARKETPLACE" ? "سوق سايسل مصر B2B" : c.source}
                       </span>
                     </td>
                     <td className="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">

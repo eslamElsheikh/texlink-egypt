@@ -80,7 +80,13 @@ export default async function HomePage() {
     });
 
     const dbRfqs = await prisma.rfq.findMany({
-      where: { status: "OPEN" },
+      where: {
+        status: "OPEN",
+        expiresAt: { gt: new Date() },
+        buyer: {
+          email: { not: { contains: "qa" } },
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 3,
       include: { category: true },

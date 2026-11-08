@@ -580,28 +580,32 @@ export default function FactoryDashboardPage() {
               </div>
 
               <div className="space-y-3">
-                {inventory.slice(0, 4).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:border-gray-200 transition"
-                  >
-                    <div>
-                      <p className="text-xs font-bold text-gray-900">{item.name}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {item.currentStock.toLocaleString()} {item.unit}
-                      </p>
+                {inventory.length === 0 ? (
+                  <p className="text-xs text-gray-500 text-center py-6">لا توجد خامات مسجلة في المستودع حالياً.</p>
+                ) : (
+                  inventory.slice(0, 4).map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:border-gray-200 transition"
+                    >
+                      <div>
+                        <p className="text-xs font-bold text-gray-900">{item.name}</p>
+                        <p className="text-[10px] text-gray-500">
+                          {item.currentStock.toLocaleString()} {item.unit}
+                        </p>
+                      </div>
+                      {item.isLow ? (
+                        <span className="text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-md">
+                          منخفض ⚠️
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                          متوفر ✓
+                        </span>
+                      )}
                     </div>
-                    {item.isLow ? (
-                      <span className="text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-md">
-                        منخفض ⚠️
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                        متوفر ✓
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -692,41 +696,45 @@ export default function FactoryDashboardPage() {
               </div>
 
               <div className="space-y-3">
-                {orders.slice(0, 3).map((ord) => (
-                  <div
-                    key={ord.id}
-                    className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 space-y-1.5 hover:border-gray-200 transition"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-900">{ord.orderNumber}</span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          ord.status === "COMPLETED"
-                            ? "bg-emerald-100 text-emerald-800"
+                {orders.length === 0 ? (
+                  <p className="text-xs text-gray-500 text-center py-6">لا توجد أوامر تشغيل جارية حالياً.</p>
+                ) : (
+                  orders.slice(0, 3).map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 space-y-1.5 hover:border-gray-200 transition"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-gray-900">{ord.orderNumber}</span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                            ord.status === "COMPLETED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : ord.status === "IN_PROGRESS"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-purple-100 text-purple-800"
+                          }`}
+                        >
+                          {ord.status === "COMPLETED"
+                            ? "مكتمل"
                             : ord.status === "IN_PROGRESS"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-purple-100 text-purple-800"
-                        }`}
-                      >
-                        {ord.status === "COMPLETED"
-                          ? "مكتمل"
-                          : ord.status === "IN_PROGRESS"
-                          ? "قيد الإنتاج"
-                          : "في التجهيز"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-600 line-clamp-1">{ord.productName}</p>
-                    <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                      <div className="flex-1 bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="bg-[#5932A8] h-full rounded-full transition-all duration-300"
-                          style={{ width: `${ord.progressPercentage}%` }}
-                        />
+                            ? "قيد الإنتاج"
+                            : "في التجهيز"}
+                        </span>
                       </div>
-                      <span className="font-semibold">{ord.progressPercentage}%</span>
+                      <p className="text-[11px] text-gray-600 line-clamp-1">{ord.productName}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                        <div className="flex-1 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="bg-[#5932A8] h-full rounded-full transition-all duration-300"
+                            style={{ width: `${ord.progressPercentage}%` }}
+                          />
+                        </div>
+                        <span className="font-semibold">{ord.progressPercentage}%</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 

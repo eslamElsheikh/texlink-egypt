@@ -43,9 +43,19 @@ export async function resolveFactoryContext(
       include: { settings: true },
     });
 
-    if (!factory && session.factoryId) {
+    // For non-owner staff/employees, strictly verify live employment from database to defeat stale JWTs
+    if (!factory) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.id },
+        select: { factoryId: true, role: true },
+      });
+
+      if (!dbUser || !dbUser.factoryId) {
+        return { error: "تم إلغاء ارتباطك بالمصنع أو إيقاف حسابك، يرجى مراجعة إدارة المنشأة", status: 403 };
+      }
+
       factory = await prisma.factoryProfile.findUnique({
-        where: { id: session.factoryId },
+        where: { id: dbUser.factoryId },
         include: { settings: true },
       });
     }

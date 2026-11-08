@@ -113,7 +113,7 @@ export default function FactoryOrdersPage() {
                 <Truck className="w-6 h-6" />
               </span>
               <h1 className="text-xl sm:text-2xl font-black text-[#17233F]">
-                صفقات سوق تكس لينك وأوامر التوريد B2B
+                صفقات سوق سايسل مصر وأوامر التوريد B2B
               </h1>
             </div>
             <p className="text-xs sm:text-sm text-[#718096] mt-1">

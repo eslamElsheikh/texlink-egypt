@@ -72,7 +72,7 @@ export async function POST(request: Request) {
           actualStartDate: new Date(),
           priority: priority || "HIGH",
           status: "IN_PROGRESS",
-          notes: `تحويل تلقائي من صفقة سوق تكس لينك #${b2bOrder.orderNumber} لصالح المشتري ${b2bOrder.buyer.name}`,
+          notes: `تحويل تلقائي من صفقة سوق سايسل مصر #${b2bOrder.orderNumber} لصالح المشتري ${b2bOrder.buyer.name}`,
         },
       });
 

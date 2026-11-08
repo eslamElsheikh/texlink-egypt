@@ -250,7 +250,7 @@ export default function OrderDetailPage({
 
             <a
               href={`https://wa.me/2${order.factory.whatsapp}?text=${encodeURIComponent(
-                `مرحباً، بخصوص أمر التصنيع #${order.orderNumber} من منصة TexLink:`
+                `مرحباً، بخصوص أمر التصنيع #${order.orderNumber} من منصة سايسل مصر (Cysle Egypt):`
               )}`}
               target="_blank"
               rel="noopener noreferrer"

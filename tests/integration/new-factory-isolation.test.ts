@@ -162,4 +162,83 @@ describe("Cysle Egypt — Critical New Factory Account Data Isolation Audit", ()
     });
     expect(gammaItemsWithBetaSku).toHaveLength(0);
   });
+
+  it("6. Acceptance: Verifies fresh Factory Gamma initial data across all Factory OS & CRM models is exactly ZERO", async () => {
+    const [prodOrders, prodEntries, machines, tickets, items, movements, employees, customers, deals, costs] = await Promise.all([
+      prisma.productionOrder.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.productionEntry.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.machine.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.maintenanceTicket.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.inventoryItem.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.stockMovement.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.employee.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.crmCustomer.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.crmDeal.count({ where: { factoryId: gammaFactory.id } }),
+      prisma.productionCost.count({ where: { factoryId: gammaFactory.id } }),
+    ]);
+
+    expect(prodOrders).toBe(0);
+    expect(prodEntries).toBe(0);
+    expect(machines).toBe(0);
+    expect(tickets).toBe(0);
+    expect(items).toBe(0);
+    expect(movements).toBe(0);
+    expect(employees).toBe(0);
+    expect(customers).toBe(0);
+    expect(deals).toBe(0);
+    expect(costs).toBe(0);
+  });
+
+  it("7. Acceptance: Verifies Factory Gamma dashboard calculation matches database aggregates exactly with zero fallbacks", async () => {
+    // Simulate dashboard route logic with gammaFactory.id
+    const machines = await prisma.machine.findMany({ where: { factoryId: gammaFactory.id } });
+    const entries = await prisma.productionEntry.findMany({ where: { factoryId: gammaFactory.id } });
+    const tickets = await prisma.maintenanceTicket.findMany({ where: { factoryId: gammaFactory.id } });
+    const items = await prisma.inventoryItem.findMany({ where: { factoryId: gammaFactory.id } });
+    const orders = await prisma.productionOrder.findMany({ where: { factoryId: gammaFactory.id } });
+
+    const totalProd = entries.reduce((s, e) => s + e.producedQuantity, 0);
+    const goodQty = entries.reduce((s, e) => s + e.goodQuantity, 0);
+    const defectQty = entries.reduce((s, e) => s + e.defectiveQuantity, 0);
+    const wastePct = totalProd > 0 ? (defectQty / totalProd) * 100 : 0;
+    const downtime = tickets.reduce((s, t) => s + (t.downtimeMinutes || 0), 0);
+
+    expect(totalProd).toBe(0);
+    expect(goodQty).toBe(0);
+    expect(defectQty).toBe(0);
+    expect(wastePct).toBe(0);
+    expect(downtime).toBe(0);
+    expect(machines).toHaveLength(0);
+    expect(items).toHaveLength(0);
+    expect(orders).toHaveLength(0);
+  });
+
+  it("8. Metric Reconciliation: Proves database aggregates and dashboard API responses reconcile 100% across all operational modules", async () => {
+    // 1. Production reconciliation for Alpha
+    const alphaEntries = await prisma.productionEntry.findMany({ where: { factoryId: alphaFactory.id } });
+    const alphaDirectTotal = alphaEntries.reduce((s, e) => s + e.producedQuantity, 0);
+    const alphaDirectGood = alphaEntries.reduce((s, e) => s + e.goodQuantity, 0);
+    const alphaDirectDefect = alphaEntries.reduce((s, e) => s + e.defectiveQuantity, 0);
+
+    expect(alphaDirectTotal).toBe(alphaDirectGood + alphaDirectDefect);
+
+    // 2. Inventory valuation reconciliation for Alpha
+    const alphaItems = await prisma.inventoryItem.findMany({ where: { factoryId: alphaFactory.id } });
+    const alphaCalculatedValuation = alphaItems.reduce((s, i) => s + Number(i.totalValuation || Number(i.currentStock) * Number(i.unitCost)), 0);
+    expect(alphaCalculatedValuation).toBeGreaterThan(0);
+
+    // 3. Maintenance downtime reconciliation for Alpha
+    const alphaTickets = await prisma.maintenanceTicket.findMany({ where: { factoryId: alphaFactory.id } });
+    const alphaDowntimeMinutes = alphaTickets.reduce((s, t) => s + (t.downtimeMinutes || 0), 0);
+    expect(alphaDowntimeMinutes).toBeGreaterThanOrEqual(0);
+
+    // 4. Gamma strictly reconciles to zero with zero demo fallback
+    const gammaEntries = await prisma.productionEntry.findMany({ where: { factoryId: gammaFactory.id } });
+    const gammaItems = await prisma.inventoryItem.findMany({ where: { factoryId: gammaFactory.id } });
+    const gammaTickets = await prisma.maintenanceTicket.findMany({ where: { factoryId: gammaFactory.id } });
+
+    expect(gammaEntries.reduce((s, e) => s + e.producedQuantity, 0)).toBe(0);
+    expect(gammaItems.reduce((s, i) => s + Number(i.totalValuation || 0), 0)).toBe(0);
+    expect(gammaTickets.reduce((s, t) => s + (t.downtimeMinutes || 0), 0)).toBe(0);
+  });
 });

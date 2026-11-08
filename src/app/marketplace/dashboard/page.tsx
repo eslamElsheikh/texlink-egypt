@@ -87,7 +87,7 @@ export default function MarketplaceDashboardPage() {
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-medium text-blue-200 border border-white/15">
                 <ShoppingBag className="w-3.5 h-3.5 text-blue-300" />
-                سوق تكس لينك التجاري B2B (Marketplace Workspace)
+                سوق سايسل مصر التجاري B2B (Marketplace Workspace)
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
                 لوحة صفقات وعروض السوق التجاري

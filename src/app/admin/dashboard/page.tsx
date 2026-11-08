@@ -80,7 +80,7 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState("");
   const [user, setUser] = useState({
     id: "admin",
-    name: "إدارة منصة تكس لينك",
+    name: "إدارة منصة سايسل مصر",
     email: "admin@texlink-egypt.com",
     role: "ADMIN" as const,
     isFactory: false,

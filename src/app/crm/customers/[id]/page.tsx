@@ -235,7 +235,7 @@ export default function CustomerProfilePage() {
                   {customer.buyer && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 flex items-center gap-1">
                       <ShoppingBag className="w-3 h-3" />
-                      مربوط بمشتري تكس لينك B2B
+                      مربوط بمشتري سايسل مصر B2B
                     </span>
                   )}
                 </div>

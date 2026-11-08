@@ -171,7 +171,7 @@ export default function AdminProfilePage() {
 
   const userContext = {
     id: profile?.id || "admin",
-    name: profile?.name || "إدارة منصة تكس لينك",
+    name: profile?.name || "إدارة منصة سايسل مصر",
     email: profile?.email || "admin@texlink-egypt.com",
     avatarUrl: avatarUrl || profile?.avatarUrl || null,
     role: "ADMIN" as const,

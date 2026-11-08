@@ -271,6 +271,15 @@ describe("Cysle Egypt — Complete End-to-End Business Workflows", () => {
 
       expect(movement.quantity).toBe(250);
       expect(movement.newStock).toBe(initialStock - consumeQty);
+
+      // Clean up / restore stock balance to preserve inventory ledger integrity
+      await prisma.inventoryItem.update({
+        where: { id: item!.id },
+        data: {
+          currentStock: initialStock,
+          totalValuation: initialStock * item!.unitCost,
+        },
+      });
     });
   });
 

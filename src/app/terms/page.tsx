@@ -14,7 +14,7 @@ export default function TermsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-8 md:p-10 shadow-sm space-y-6">
           <div className="border-b pb-4">
             <h1 className="text-2xl font-black text-slate-900">
-              الشروط والأحكام العامة لاستخدام منصة تكس لينك مصر
+              الشروط والأحكام العامة لاستخدام منصة سايسل مصر (Cysle Egypt)
             </h1>
             <p className="text-xs text-slate-500 mt-1">آخر تحديث: 2026</p>
           </div>

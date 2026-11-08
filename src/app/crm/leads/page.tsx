@@ -349,7 +349,7 @@ export default function CrmLeadsPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     >
                       <option value="DIRECT_CALL">اتصال هاتفي مباشر</option>
-                      <option value="MARKETPLACE_RFQ">طلب شراء من سوق تكس لينك</option>
+                      <option value="MARKETPLACE_RFQ">طلب شراء من سوق سايسل مصر</option>
                       <option value="WHATSAPP">رسالة واتساب</option>
                       <option value="WEBSITE">استمارة الموقع</option>
                     </select>

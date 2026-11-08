@@ -85,7 +85,7 @@ export default function CrmMarketplaceRequestsPage() {
                 <ShoppingBag className="w-6 h-6" />
               </span>
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">
-                طلبات سوق تكس لينك المتكاملة مع CRM (Marketplace Requests)
+                طلبات سوق سايسل مصر المتكاملة مع CRM (Marketplace Requests)
               </h1>
             </div>
             <p className="text-gray-500 text-xs md:text-sm mt-1">

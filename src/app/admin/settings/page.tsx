@@ -13,7 +13,7 @@ export default function AdminSettingsPage() {
 
   const user = {
     id: "admin",
-    name: "إدارة منصة تكس لينك",
+    name: "إدارة منصة سايسل مصر",
     email: "admin@texlink-egypt.com",
     role: "ADMIN" as const,
     isFactory: false,
@@ -34,7 +34,7 @@ export default function AdminSettingsPage() {
             إعدادات المنصة وتفضيلات النظام
           </h1>
           <p className="text-xs sm:text-sm text-[#718096] mt-1">
-            فصل إعدادات الحساب الشخصي عن إعدادات تشغيل وسياسات منصة تكس لينك مصر.
+            فصل إعدادات الحساب الشخصي عن إعدادات تشغيل وسياسات منصة سايسل مصر (Cysle Egypt).
           </p>
         </div>
       </div>

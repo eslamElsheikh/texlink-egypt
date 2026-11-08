@@ -224,7 +224,7 @@ export async function POST(
           customerId: crmCustomer.id,
           dealId: crmDeal.id,
           type: "MARKETPLACE_ORDER",
-          description: `اعتماد طلب شراء رسمي #${order.orderNumber} بقيمة ${order.totalAmount.toLocaleString()} ج.م من سوق تكس لينك`,
+          description: `اعتماد طلب شراء رسمي #${order.orderNumber} بقيمة ${order.totalAmount.toLocaleString()} ج.م من سوق سايسل مصر`,
           performedBy: rfq.buyer.name,
         },
       });

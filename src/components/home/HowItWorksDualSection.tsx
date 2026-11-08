@@ -58,7 +58,7 @@ export function HowItWorksDualSection() {
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[#542cb7] border border-purple-200 text-xs font-bold">
             <Sparkles className="w-3.5 h-3.5 text-[#542cb7]" />
-            <span>كيف تعمل منصة تكس لينك مصر</span>
+            <span>كيف تعمل منصة سايسل مصر (Cysle Egypt)</span>
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
             حلول مصممة خصيصاً للمشترين والمصانع
@@ -167,7 +167,7 @@ export function HowItWorksDualSection() {
           <div className="space-y-8 animate-in fade-in duration-300">
             <div className="text-center max-w-2xl mx-auto space-y-1.5">
               <h3 className="text-xl sm:text-2xl font-black text-slate-900">
-                أدِر مصنعك باحترافية صناعية. ونمِّ مبيعاتك مع تكس لينك.
+                أدِر مصنعك باحترافية صناعية. ونمِّ مبيعاتك مع سايسل مصر.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600">
                 نوفر لك حرية الاختيار بين استخدام المنصة كنظام ERP داخلي متكامل أو الربط مع سوق B2B لزيادة الصفقات.
@@ -202,7 +202,7 @@ export function HowItWorksDualSection() {
                       استقلالية تشغيلية تامة:
                     </p>
                     <p className="text-[11px] text-emerald-900/90 leading-relaxed">
-                      "يمكنك استخدام تكس لينك لإدارة مصنعك بالكامل دون الحاجة لعرض منتجاتك، أو الانضمام للسوق التجاري، أو استقبال طلبات شراء عامة."
+                      "يمكنك استخدام سايسل مصر لإدارة مصنعك بالكامل دون الحاجة لعرض منتجاتك، أو الانضمام للسوق التجاري، أو استقبال طلبات شراء عامة."
                     </p>
                   </div>
 
@@ -280,7 +280,7 @@ export function HowItWorksDualSection() {
                       كل مزايا إدارة المصنع + قنوات بيع حقيقية:
                     </p>
                     <p className="text-[11px] text-purple-900/90 leading-relaxed">
-                      يشمل كافة أدوات Factory OS التشغيلية بالكامل، مع فتح ملف مصنعك في سوق تكس لينك واستقبال طلبات عروض الأسعار (RFQs).
+                      يشمل كافة أدوات Factory OS التشغيلية بالكامل، مع فتح ملف مصنعك في سوق سايسل مصر واستقبال طلبات عروض الأسعار (RFQs).
                     </p>
                   </div>
 
@@ -321,7 +321,7 @@ export function HowItWorksDualSection() {
                     href="/factories/register?mode=FULL_ACCESS"
                     className="w-full py-3.5 px-6 bg-[#542cb7] hover:bg-[#432096] text-white rounded-2xl text-xs sm:text-sm font-black transition shadow-md flex items-center justify-center gap-2"
                   >
-                    <span>انضم لسوق تكس لينك والمصنع</span>
+                    <span>انضم لسوق سايسل مصر والمصنع</span>
                     <ArrowLeft className="w-4 h-4" />
                   </Link>
                   <p className="text-[10px] text-center text-slate-400 mt-2">

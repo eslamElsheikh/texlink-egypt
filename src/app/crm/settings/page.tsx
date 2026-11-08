@@ -37,7 +37,7 @@ export default function CrmSettingsPage() {
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">إعدادات إدارة المبيعات والعملاء (CRM Settings)</h1>
               <p className="text-gray-500 text-xs md:text-sm mt-1">
-                تخصيص قواعد تتبع الفرص، التنبيهات التلقائية، وربط عملاء سوق تكس لينك بـ CRM.
+                تخصيص قواعد تتبع الفرص، التنبيهات التلقائية، وربط عملاء سوق سايسل مصر بـ CRM.
               </p>
             </div>
           </div>

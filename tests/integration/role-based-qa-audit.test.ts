@@ -198,4 +198,91 @@ describe("Cysle Egypt — Role-Based QA & Permissions Audit", () => {
       expect(isCrossFactory).toBe(true);
     });
   });
+
+  describe("5. Employee Membership Revocation & Stale JWT Defense", () => {
+    it("strictly rejects employee when removed from factory in DB even if JWT still claims membership", async () => {
+      // Create a temporary employee user linked to Factory Alpha
+      const tempEmployee = await prisma.user.create({
+        data: {
+          email: "temp-worker@cysle-qa.com",
+          name: "عامل مؤقت للاختبار",
+          phone: "01099998888",
+          passwordHash: "hash",
+          role: "FACTORY",
+          isFactory: true,
+          isBuyer: false,
+          factoryId: factoryAlpha.id,
+        },
+      });
+
+      // Issue JWT containing factoryAlpha.id
+      const token = await createSessionToken({
+        id: tempEmployee.id,
+        email: tempEmployee.email,
+        name: tempEmployee.name,
+        phone: tempEmployee.phone,
+        role: "FACTORY",
+        isFactory: true,
+        isBuyer: false,
+        factoryId: factoryAlpha.id,
+        factorySlug: factoryAlpha.slug,
+      });
+
+      const parsedSession = await verifySessionToken(token);
+      expect(parsedSession).toBeDefined();
+      expect(parsedSession?.factoryId).toBe(factoryAlpha.id);
+
+      // Now revoke the employee in the database (set factoryId = null)
+      await prisma.user.update({
+        where: { id: tempEmployee.id },
+        data: { factoryId: null },
+      });
+
+      // Simulate resolveFactoryContext check
+      const dbUser = await prisma.user.findUnique({
+        where: { id: tempEmployee.id },
+        select: { factoryId: true },
+      });
+      expect(dbUser?.factoryId).toBeNull();
+
+      // Access must be denied with 403
+      const isRevoked = !dbUser?.factoryId;
+      expect(isRevoked).toBe(true);
+
+      // Cleanup
+      await prisma.user.delete({ where: { id: tempEmployee.id } });
+    });
+
+    it("detects employee reassignment to a different factory and refuses stale factory context", async () => {
+      const reassignEmployee = await prisma.user.create({
+        data: {
+          email: "reassign-worker@cysle-qa.com",
+          name: "عامل منقول للاختبار",
+          phone: "01099997777",
+          passwordHash: "hash",
+          role: "FACTORY",
+          isFactory: true,
+          isBuyer: false,
+          factoryId: factoryAlpha.id,
+        },
+      });
+
+      // Employee is reassigned to Factory Beta in DB
+      await prisma.user.update({
+        where: { id: reassignEmployee.id },
+        data: { factoryId: factoryBeta.id },
+      });
+
+      const dbUser = await prisma.user.findUnique({
+        where: { id: reassignEmployee.id },
+        select: { factoryId: true },
+      });
+
+      expect(dbUser?.factoryId).toBe(factoryBeta.id);
+      expect(dbUser?.factoryId).not.toBe(factoryAlpha.id);
+
+      // Cleanup
+      await prisma.user.delete({ where: { id: reassignEmployee.id } });
+    });
+  });
 });

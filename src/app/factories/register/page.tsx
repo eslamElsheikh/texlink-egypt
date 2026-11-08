@@ -190,7 +190,7 @@ function FactoryRegisterForm() {
             <span>تسجيل وتوثيق المنشآت الصناعية</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-[#0b1320]">
-            انضم كـ مصنع معتمد في شبكة تكس لينك مصر
+            انضم كـ مصنع معتمد في شبكة سايسل مصر (Cysle Egypt)
           </h1>
           <p className="text-slate-600 text-sm mt-2 max-w-lg mx-auto">
             احصل على طلبات تصنيع (RFQ) حقيقية بمواصفات دقيقة من كبار تجار الجملة
@@ -253,7 +253,7 @@ function FactoryRegisterForm() {
             <p className="text-slate-600 text-sm max-w-md mx-auto leading-relaxed">
               {formData.usageMode === "MANAGEMENT_ONLY"
                 ? "مساحة إدارة وتشغيل المصنع (Factory OS) مفعلة وجاهزة للعمل فوراً. يمكنك الآن البدء في تسجيل الماكينات، أوامر الإنتاج، المخازن، والعمالة."
-                : "طلبك الآن في مرحلة التدقيق لدى إدارة تكس لينك للتأكد من السجل التجاري والبيانات الصناعية. ستتلقى إشعاراً بالموافقة وتفعيل شارة المصنع المعتمد خلال 24 ساعة عمل."}
+                : "طلبك الآن في مرحلة التدقيق لدى إدارة سايسل مصر للتأكد من السجل التجاري والبيانات الصناعية. ستتلقى إشعاراً بالموافقة وتفعيل شارة المصنع المعتمد خلال 24 ساعة عمل."}
             </p>
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -280,7 +280,7 @@ function FactoryRegisterForm() {
                 <div className="space-y-3 pb-6 border-b border-slate-200">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                     <label className="block text-sm font-black text-slate-900">
-                      كيف ترغب في استخدام منصة تكس لينك؟ *
+                      كيف ترغب في استخدام منصة سايسل مصر؟ *
                     </label>
                     <span className="text-[11px] font-bold text-slate-400">يمكنك تعديل هذا الخيار لاحقاً من الإعدادات</span>
                   </div>
@@ -721,7 +721,7 @@ function FactoryRegisterForm() {
                     <p className="font-bold text-sm mb-1">
                       لماذا نطلب مستندات رسمية؟
                     </p>
-                    تكس لينك منصة موثوقة حصرياً للمصانع والورش والمنشآت المسجلة
+                    سايسل مصر منصة موثوقة حصرياً للمصانع والورش والمنشآت المسجلة
                     لحماية حقوق التجار والمصنعين وتجنب الوسطاء غير الجادين.
                   </div>
                 </div>

@@ -71,7 +71,7 @@ export function WorkspaceSwitcher({
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-[#5932A8] rounded-xl border border-purple-100 text-xs font-bold">
         <ShoppingBag className="w-4 h-4 text-[#5932A8]" />
-        <span>سوق تكس لينك للمشتريات</span>
+        <span>سوق سايسل مصر للمشتريات</span>
       </div>
     );
   }
@@ -101,7 +101,7 @@ export function WorkspaceSwitcher({
     },
     {
       id: "MARKETPLACE" as WorkspaceType,
-      title: "سوق تكس لينك B2B",
+      title: "سوق سايسل مصر B2B",
       subtitle: "طلبات RFQ وصفقات السوق",
       href: "/marketplace/dashboard",
       icon: ShoppingBag,

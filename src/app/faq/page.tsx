@@ -45,7 +45,7 @@ export default function FaqPage() {
             <span>مركز المساعدة والأسئلة الشائعة</span>
           </div>
           <h1 className="text-2xl md:text-4xl font-extrabold text-[#0b1320]">
-            كل ما تحتاج لمعرفته حول منصة تكس لينك مصر
+            كل ما تحتاج لمعرفته حول منصة سايسل مصر (Cysle Egypt)
           </h1>
           <p className="text-slate-600 text-xs md:text-sm">
             إجابات شاملة عن الأسئلة الأكثر تكراراً للمشترين والمصانع
