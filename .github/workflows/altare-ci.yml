@@ -17,6 +17,17 @@ jobs:
     name: Lint, Test & Validate Altare Build
     runs-on: ubuntu-latest
 
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -61,12 +72,13 @@ jobs:
       - name: Run TypeScript Typecheck
         run: npx tsc --noEmit
 
-      - name: Run Automated Test Suite
+      - name: Run Automated Test Suite (Including Live Redis Integration)
         env:
           NODE_ENV: test
           JWT_SECRET: "ci-testing-jwt-secret-key-minimum-32-characters-entropy-check"
           DATABASE_URL: "file:./dev.db"
           DIRECT_URL: "file:./dev.db"
+          REDIS_URL: "redis://localhost:6379"
         run: npm test
 
       - name: Validate Production Build
@@ -78,3 +90,193 @@ jobs:
           NEXT_PUBLIC_APP_URL: "https://cysle-ci.example.com"
           RESEND_API_KEY: "re_ci_placeholder_key"
         run: npm run build:altare
+
+  docker-runtime-verification:
+    name: Docker Build & Production Container Runtime Verification
+    runs-on: ubuntu-latest
+    needs: validate-and-test
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: texlink
+          POSTGRES_PASSWORD: testpassword123
+          POSTGRES_DB: texlink
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Prepare PostgreSQL Schema for Container Verification
+        env:
+          DATABASE_URL: "postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public"
+          DIRECT_URL: "postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public"
+        run: |
+          npx prisma db push --schema=prisma/schema.postgresql.prisma
+
+      - name: Execute Real Docker Image Build
+        run: |
+          docker build \
+            --build-arg DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            --build-arg DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            --build-arg JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -t cysle-egypt:production-ready .
+
+      - name: 1. Verify Container Process Runs as Non-Root UID 1001
+        run: |
+          echo "Starting container to inspect user credentials..."
+          docker run -d --name cysle-uid-check \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            cysle-egypt:production-ready
+
+          sleep 5
+          USER_ID=$(docker exec cysle-uid-check id -u)
+          USER_NAME=$(docker exec cysle-uid-check whoami)
+          echo "Verified Container User: $USER_NAME (UID: $USER_ID)"
+          test "$USER_ID" = "1001"
+          test "$USER_NAME" = "nextjs"
+          docker rm -f cysle-uid-check
+
+      - name: 2. Verify /api/health HTTP 200 with Live PostgreSQL Database
+        run: |
+          echo "Starting container on host network to reach PostgreSQL service..."
+          docker run -d --name cysle-healthy --network host \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e REDIS_URL="redis://localhost:6379" \
+            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            cysle-egypt:production-ready
+
+          sleep 6
+          echo "Probing container /api/health endpoint..."
+          HTTP_STATUS=$(curl -s -o /tmp/health_ok.json -w "%{http_code}" http://localhost:3000/api/health)
+          echo "HTTP Status Code: $HTTP_STATUS"
+          cat /tmp/health_ok.json
+          test "$HTTP_STATUS" = "200"
+          grep -q '"status":"ok"' /tmp/health_ok.json
+          grep -q '"status":"connected"' /tmp/health_ok.json
+          docker rm -f cysle-healthy
+
+      - name: 3. Verify /api/health HTTP 503 When Database Is Unavailable
+        run: |
+          echo "Starting container pointing to unreachable database port..."
+          docker run -d --name cysle-unhealthy --network host \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5433/unreachable_db?schema=public&connect_timeout=2" \
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5433/unreachable_db?schema=public&connect_timeout=2" \
+            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            cysle-egypt:production-ready
+
+          sleep 6
+          echo "Probing /api/health with unavailable database..."
+          UNHEALTHY_STATUS=$(curl -s -o /tmp/health_err.json -w "%{http_code}" http://localhost:3000/api/health)
+          echo "HTTP Status Code: $UNHEALTHY_STATUS"
+          cat /tmp/health_err.json
+          test "$UNHEALTHY_STATUS" = "503"
+          grep -q '"database":"disconnected"' /tmp/health_err.json
+          docker rm -f cysle-unhealthy
+
+      - name: 4. Verify Container Startup Fails When JWT_SECRET Is Missing or Invalid
+        run: |
+          echo "Checking startup failure when JWT_SECRET is missing..."
+          MISSING_CODE=0
+          docker run --rm \
+            -e NODE_ENV=production \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            cysle-egypt:production-ready || MISSING_CODE=$?
+          echo "Container exit code with missing secret: $MISSING_CODE"
+          test "$MISSING_CODE" -ne 0
+
+          echo "Checking startup failure when JWT_SECRET is weak/placeholder (123456)..."
+          WEAK_CODE=0
+          docker run --rm \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="123456" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            cysle-egypt:production-ready || WEAK_CODE=$?
+          echo "Container exit code with weak secret: $WEAK_CODE"
+          test "$WEAK_CODE" -ne 0
+
+      - name: 5. Verify Private Uploads Do Not Rely on Ephemeral Container Storage
+        run: |
+          docker run -d --name cysle-storage-check --network host \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            cysle-egypt:production-ready
+
+          sleep 6
+          # Test unauthenticated upload rejection (HTTP 401)
+          RES=$(curl -s -o /tmp/upload_test.json -w "%{http_code}" -X POST http://localhost:3000/api/upload)
+          echo "Unauthenticated upload status: $RES"
+          test "$RES" = "401"
+          # Verify container does not possess local persistent private storage directories
+          docker exec cysle-storage-check test ! -d /app/storage/private/documents
+          docker rm -f cysle-storage-check
+
+      - name: 6. Verify Graceful Shutdown (SIGTERM) and Container Restart
+        run: |
+          echo "Starting container for shutdown and restart verification..."
+          docker run -d --name cysle-lifecycle --network host \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e REDIS_URL="redis://localhost:6379" \
+            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            cysle-egypt:production-ready
+
+          sleep 6
+          INIT_STATUS=$(curl -s -w "%{http_code}" -o /dev/null http://localhost:3000/api/health)
+          echo "Initial healthcheck status: $INIT_STATUS"
+          test "$INIT_STATUS" = "200"
+
+          echo "Sending graceful SIGTERM (docker stop -t 10)..."
+          docker stop -t 10 cysle-lifecycle
+          EXIT_CODE=$(docker inspect cysle-lifecycle --format='{{.State.ExitCode}}')
+          echo "Container exit code on SIGTERM: $EXIT_CODE"
+          test "$EXIT_CODE" = "0" -o "$EXIT_CODE" = "143"
+
+          echo "Restarting container..."
+          docker start cysle-lifecycle
+          sleep 6
+          RESTART_STATUS=$(curl -s -w "%{http_code}" -o /dev/null http://localhost:3000/api/health)
+          echo "Restart healthcheck status: $RESTART_STATUS"
+          test "$RESTART_STATUS" = "200"
+          docker rm -f cysle-lifecycle

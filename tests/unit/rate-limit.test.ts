@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   checkRateLimit,
   setRateLimitStore,
+  getRateLimitStore,
+  getRateLimitPolicy,
   MemoryRateLimitStore,
+  RedisRateLimitStore,
   RateLimitStore,
   RateLimitResult,
   getClientIp,
@@ -150,12 +153,48 @@ describe("P1 Distributed Production Rate Limiting", () => {
     });
   });
 
+  describe("Production Policy & Redis Outage Behavior", () => {
+    it("identifies distributed-required policy in production by default", () => {
+      expect(getRateLimitPolicy({ NODE_ENV: "production" })).toBe("distributed-required");
+    });
+
+    it("permits single-instance exception only when explicitly opted into", () => {
+      expect(
+        getRateLimitPolicy({
+          NODE_ENV: "production",
+          ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER: "true",
+        })
+      ).toBe("single-instance-permitted");
+    });
+
+    it("throws a fatal configuration error in production if REDIS_URL is omitted without single-instance override", () => {
+      setRateLimitStore(null);
+      expect(() =>
+        getRateLimitStore({
+          NODE_ENV: "production",
+        })
+      ).toThrowError(/FATAL_RATE_LIMIT_CONFIG_ERROR/);
+    });
+
+    it("fails closed on Redis outage when failClosedOnOutage is true", async () => {
+      // Connect to unreachable port to force connection failure
+      const brokenStore = new RedisRateLimitStore("redis://127.0.0.1:59999", "distributed-required");
+      const result = await brokenStore.checkLimit("auth_test_key", 5, 60000, true);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("RATE_LIMITER_UNAVAILABLE");
+      expect(result.reason).toContain("Distributed rate limiter is unavailable");
+      await brokenStore.disconnect();
+    });
+  });
+
   describe("Client IP Extraction", () => {
-    it("extracts IP from X-Forwarded-For taking the first client address", () => {
+    it("extracts connecting client IP from X-Forwarded-For using trusted depth", () => {
       const req = new Request("http://localhost/api/test", {
         headers: { "x-forwarded-for": "156.204.10.2, 10.0.0.1" },
       });
-      expect(getClientIp(req)).toBe("156.204.10.2");
+      // Default depth 1 extracts the rightmost client IP appended by trusted ingress
+      expect(getClientIp(req)).toBe("10.0.0.1");
     });
 
     it("falls back to X-Real-IP when X-Forwarded-For is omitted", () => {

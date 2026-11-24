@@ -33,6 +33,8 @@ ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/texlink?sc
 ENV DATABASE_URL=$DATABASE_URL
 ARG DIRECT_URL="postgresql://placeholder:placeholder@localhost:5432/texlink?schema=public"
 ENV DIRECT_URL=$DIRECT_URL
+ARG JWT_SECRET="ci-build-time-secret-key-minimum-32-characters-entropy-check"
+ENV JWT_SECRET=$JWT_SECRET
 RUN npx prisma generate --schema=prisma/schema.postgresql.prisma
 
 # Build Next.js application with standalone output

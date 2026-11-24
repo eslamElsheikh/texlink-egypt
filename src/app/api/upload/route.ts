@@ -42,9 +42,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // Rate limiting: 20 uploads per minute per user
-    const rateCheck = await checkRateLimit(`upload_${session.id}`, { limit: 20, windowMs: 60 * 1000 });
+    // Rate limiting: 20 uploads per minute per user (fails closed if distributed limiter is unreachable in production)
+    const rateCheck = await checkRateLimit(`upload_${session.id}`, {
+      limit: 20,
+      windowMs: 60 * 1000,
+      failClosedOnOutage: true,
+    });
     if (!rateCheck.success) {
+      if (rateCheck.error === "RATE_LIMITER_UNAVAILABLE") {
+        return NextResponse.json(
+          { error: "خدمة رفع الملفات غير متاحة مؤقتاً لأسباب أمنية، يرجى المحاولة بعد قليل" },
+          { status: 503 }
+        );
+      }
       return NextResponse.json(
         { error: "تم تجاوز الحد المسموح به لرفع الملفات (الحد الأقصى 20 ملف في الدقيقة). يرجى الانتظار قليلاً." },
         { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.resetInMs / 1000)) } }

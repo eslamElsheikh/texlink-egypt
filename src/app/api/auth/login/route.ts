@@ -13,11 +13,23 @@ const loginSchema = z.object({
 export async function POST(req: Request) {
   try {
     const ip = getClientIp(req);
-    const rateCheck = await checkRateLimit(`login_ip_${ip}`, { limit: 10, windowMs: 60 * 1000 });
-    if (!rateCheck.success) {
+
+    // 1. Broad IP-level rate limit (protects against single-source volumetric attacks)
+    const ipRateCheck = await checkRateLimit(`login:ip:${ip}`, {
+      limit: 20,
+      windowMs: 60 * 1000,
+      failClosedOnOutage: true,
+    });
+    if (!ipRateCheck.success) {
+      if (ipRateCheck.error === "RATE_LIMITER_UNAVAILABLE") {
+        return NextResponse.json(
+          { error: "نظام حماية الحسابات غير متاح مؤقتاً، يرجى المحاولة بعد قليل" },
+          { status: 503 }
+        );
+      }
       return NextResponse.json(
-        { error: "تم تجاوز الحد المسموح به لمحاولات تسجيل الدخول. يرجى الانتظار لمدة دقيقة." },
-        { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.resetInMs / 1000)) } }
+        { error: "تم تجاوز الحد المسموح به لمحاولات تسجيل الدخول من هذا العنوان. يرجى الانتظار." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(ipRateCheck.resetInMs / 1000)) } }
       );
     }
 
@@ -32,9 +44,32 @@ export async function POST(req: Request) {
     }
 
     const { email, password } = parsed.data;
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 2. Compound (IP + Account) rate limit: 5 attempts per 15 minutes per IP-account pair.
+    // Defends against targeted brute force while strictly preventing global Denial-of-Service
+    // account lockout attacks (an attacker on a distinct IP cannot lock out the legitimate user).
+    const compoundKey = `login:compound:${ip}:${normalizedEmail}`;
+    const compoundRateCheck = await checkRateLimit(compoundKey, {
+      limit: 5,
+      windowMs: 15 * 60 * 1000,
+      failClosedOnOutage: true,
+    });
+    if (!compoundRateCheck.success) {
+      if (compoundRateCheck.error === "RATE_LIMITER_UNAVAILABLE") {
+        return NextResponse.json(
+          { error: "نظام حماية الحسابات غير متاح مؤقتاً، يرجى المحاولة بعد قليل" },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json(
+        { error: "تم حظر محاولات الدخول لهذا الحساب مؤقتاً من هذا العنوان بسبب تكرار المحاولات الخاطئة. يرجى الانتظار 15 دقيقة." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(compoundRateCheck.resetInMs / 1000)) } }
+      );
+    }
 
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email: normalizedEmail },
       include: { factoryProfile: true, buyerProfile: true },
     });
 

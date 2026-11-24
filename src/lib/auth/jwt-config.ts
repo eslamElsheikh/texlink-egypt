@@ -6,6 +6,8 @@
  * in production environments if secrets are missing or weak.
  */
 
+import crypto from "crypto";
+
 const KNOWN_INSECURE_SECRETS = new Set([
   "texlink-egypt-default-fallback-secret-2026",
   "default-fallback-secret",
@@ -93,6 +95,22 @@ export function resolveJwtSecret(env: NodeJS.ProcessEnv = process.env): JwtValid
  */
 export function getJwtSecretKey(): Uint8Array {
   return resolveJwtSecret().secretKey;
+}
+
+/**
+ * Generates a cryptographically strong, high-entropy production-grade JWT secret.
+ * Generates 48 bytes (384 bits) of cryptographic entropy formatted as base64url.
+ *
+ * Safe production generation commands:
+ *   openssl rand -base64 48
+ *   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+ *   npm run jwt:generate
+ */
+export function generateCryptographicJwtSecret(byteLength: number = 48): string {
+  if (byteLength < 32) {
+    throw new Error("Cryptographic secret generation requires at least 32 bytes (256 bits) of entropy.");
+  }
+  return crypto.randomBytes(byteLength).toString("base64url");
 }
 
 /**
