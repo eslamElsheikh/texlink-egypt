@@ -114,7 +114,7 @@ export async function POST(req: Request) {
     // 5. Store according to confidentiality classification
     if (isPrivate) {
       const randomId = crypto.randomUUID();
-      const storageKey = `priv_${randomId}.dat`;
+      const storageKey = `priv_${session.id}_${randomId}.dat`;
 
       if (isSupabaseStorageConfigured()) {
         const uploadRes = await uploadToSupabaseStorage({

@@ -158,12 +158,18 @@ export async function POST(req: Request) {
     });
 
     // Add documents if uploaded
+    const extractStorageKey = (url?: string | null) => {
+      if (!url) return null;
+      return url.split("/").pop() || null;
+    };
+
     const docs = [];
     if (data.commercialRegisterUrl) {
       docs.push({
         factoryId: factory.id,
         type: "COMMERCIAL_REGISTER",
         fileUrl: data.commercialRegisterUrl,
+        storageKey: extractStorageKey(data.commercialRegisterUrl),
         fileName: data.commercialRegisterName || "السجل_التجاري.pdf",
         status: "PENDING",
       });
@@ -174,6 +180,7 @@ export async function POST(req: Request) {
         factoryId: factory.id,
         type: "TAX_CARD",
         fileUrl: data.taxCardUrl,
+        storageKey: extractStorageKey(data.taxCardUrl),
         fileName: data.taxCardName || "البطاقة_الضريبية.pdf",
         status: "PENDING",
       });
@@ -184,6 +191,7 @@ export async function POST(req: Request) {
         factoryId: factory.id,
         type: "INDUSTRIAL_REGISTER",
         fileUrl: data.industrialRegisterUrl,
+        storageKey: extractStorageKey(data.industrialRegisterUrl),
         fileName: data.industrialRegisterName || "السجل_الصناعي.pdf",
         status: "PENDING",
       });

@@ -4,7 +4,7 @@
 **Deployment Target Branch**: `deploy/altare-production-prep`  
 **Repository**: `https://github.com/eslamElsheikh/texlink-egypt`  
 **Runtime**: Next.js 15 Standalone (Node.js 24 LTS, UID 1001 Non-Root)  
-**Security Status**: Verified via CI Run #45386700749 (Docker, PostgreSQL 16, Redis 7, JWT, 227 Automated Tests)
+**Security Status**: Verified via CI Run #45386700749 (Docker, PostgreSQL 16, Redis 7, JWT, 227+ Automated Tests)
 
 ---
 
@@ -17,8 +17,11 @@ Follow these steps sequentially prior to routing traffic to staging:
   - [ ] Managed Redis 7+ instance provisioned (`cysle_staging_redis`) in the same internal network/VPC.
   - [ ] Internal network / VPC security groups configured so the application runner can reach PostgreSQL (port 6543 pooled, port 5432 direct) and Redis (port 6379).
   - [ ] Supabase Storage project provisioned with two designated buckets: `factory-private-documents` (private read/write) and `texlink-public-assets` (public read).
-- [ ] **2. Database Snapshot & Pre-Migration Verification**
-  - [ ] **MANDATORY**: Take a full database snapshot (`pg_dump -Fc` or Altare cloud volume snapshot) before applying any migrations.
+- [ ] **2. Durable Encrypted Database Backup & Pre-Migration Verification**
+  - [ ] **MANDATORY**: Take a full PostgreSQL snapshot and store it in durable, encrypted cloud storage (never exclusively in `/tmp`):
+    ```bash
+    pg_dump -Fc "$DIRECT_URL" | gzip > /secure/backups/cysle_staging_pre_deploy_$(date +%Y%m%d_%H%M%S).dump.gz
+    ```
   - [ ] Inspect existing migration status against PostgreSQL schema:
     ```bash
     npx prisma migrate status --schema=prisma/schema.postgresql.prisma
@@ -31,7 +34,7 @@ Follow these steps sequentially prior to routing traffic to staging:
   - [ ] **CRITICAL SAFETY RULES**:
     - **Never** use `prisma db push` in staging or production.
     - **Never** run seed scripts (`prisma db seed` or `scripts/seed-*.ts`) against staging or production.
-    - Understand that `prisma migrate deploy` does **not** auto-generate down migrations; recovery relies on pre-tested forward migrations or restoring the pre-migration snapshot.
+    - Understand that `prisma migrate deploy` does **not** auto-generate down migrations; recovery relies on pre-tested forward migrations or the fresh-database restore procedure documented in Section 6.
 - [ ] **3. Environment Variables Injection**
   - [ ] Inject all required variables from the template below into the Altare App Console.
   - [ ] Generate a fresh 384-bit cryptographic secret (`npm run jwt:generate`) for `JWT_SECRET`.
@@ -222,7 +225,7 @@ Inspect the database query execution time:
 ```bash
 curl -s https://cysle-staging.altare.gg/api/health | jq '{service, db_status: .database.status, db_latency_ms: .database.latencyMs}'
 ```
-- **Verification**: Confirms `db_status == "connected"` and records the observed latency without assuming arbitrary thresholds.
+- **Verification**: Confirms `db_status == "connected"` and records the observed latency dynamically without assuming arbitrary thresholds.
 
 ### Test 3: Redis Distributed Cache Connectivity
 ```bash
@@ -250,45 +253,56 @@ curl -s -b /tmp/staging_cookies.txt https://cysle-staging.altare.gg/api/auth/me
 
 ### Test 5A: IP-Wide Rate-Limit Smoke Test (Broad Volumetric Defense)
 - **Rule**: 20 requests per 60 seconds per IP (`login:ip:${ip}`).
-- **Procedure**: Loop sends 25 requests from the **same source IP**, using a **different valid email per request** to avoid triggering the compound account limit.
+- **Isolation Guarantee**: Uses dedicated test source IP `198.51.100.11` and **distinct email addresses** (`ip-flood-${i}@cysle.com`) so that the compound account limit is never reached.
 ```bash
+TEST_IP_A="198.51.100.11"
+
 for i in {1..25}; do
-  RES=$(curl -s -w "\n%{http_code}" -X POST https://cysle-staging.altare.gg/api/auth/login \
+  RES=$(curl -s -i -X POST https://cysle-staging.altare.gg/api/auth/login \
     -H "Content-Type: application/json" \
+    -H "X-Forwarded-For: ${TEST_IP_A}" \
     -d "{\"email\":\"ip-flood-${i}@cysle.com\",\"password\":\"wrongpassword123\"}")
-  STATUS=$(echo "$RES" | tail -n 1)
-  BODY=$(echo "$RES" | head -n -1)
-  echo "Request $i ($STATUS): $BODY"
+  
+  STATUS=$(echo "$RES" | grep -i "^HTTP" | awk '{print $2}')
+  RETRY=$(echo "$RES" | grep -i "^Retry-After" | awk '{print $2}' | tr -d '\r')
+  echo "Request $i -> Status: $STATUS, Retry-After: $RETRY"
 done
 ```
 - **Expected Verification**:
-  - Requests 1–20: Return `HTTP 401` (invalid credentials reached after rate-limit check passes).
+  - Requests 1–20: Return `HTTP 401` (invalid credentials reached after broad IP check passes).
   - Requests 21–25: Return `HTTP 429 Too Many Requests` with:
-    `{"error":"تم تجاوز الحد المسموح به لمحاولات تسجيل الدخول من هذا العنوان. يرجى الانتظار."}` and response header `Retry-After: 60`.
+    `{"error":"تم تجاوز الحد المسموح به لمحاولات تسجيل الدخول من هذا العنوان. يرجى الانتظار."}`.
+  - **Retry-After Validation**: `Retry-After` exists and is a positive integer within the 60-second window (`1 <= Retry-After <= 60`). Do **not** expect exact equality to 60 due to rolling millisecond windows.
 
 ### Test 5B: Compound IP + Account Rate-Limit Smoke Test (Targeted Brute-Force Defense)
 - **Rule**: 5 attempts per 15 minutes per IP + normalized email pair (`login:compound:${ip}:${email}`).
-- **Procedure**: Loop sends 6 requests from the **same source IP** targeting the **exact same email address**.
+- **Isolation Guarantee**: Uses independent test source IP `198.51.100.22` targeting the **exact same email address**.
 ```bash
+TEST_IP_B="198.51.100.22"
 TARGET_EMAIL="targeted-account@cysle.com"
 
 for i in {1..6}; do
-  RES=$(curl -s -w "\n%{http_code}" -X POST https://cysle-staging.altare.gg/api/auth/login \
+  RES=$(curl -s -i -X POST https://cysle-staging.altare.gg/api/auth/login \
     -H "Content-Type: application/json" \
+    -H "X-Forwarded-For: ${TEST_IP_B}" \
     -d "{\"email\":\"${TARGET_EMAIL}\",\"password\":\"wrongpassword123\"}")
-  STATUS=$(echo "$RES" | tail -n 1)
-  BODY=$(echo "$RES" | head -n -1)
-  echo "Attempt $i ($STATUS): $BODY"
+  
+  STATUS=$(echo "$RES" | grep -i "^HTTP" | awk '{print $2}')
+  RETRY=$(echo "$RES" | grep -i "^Retry-After" | awk '{print $2}' | tr -d '\r')
+  echo "Attempt $i -> Status: $STATUS, Retry-After: $RETRY"
 done
 ```
 - **Expected Verification**:
   - Attempts 1–5: Return `HTTP 401` (credential validation fails).
   - Attempt 6: Returns `HTTP 429 Too Many Requests` with compound lockout error:
-    `{"error":"تم حظر محاولات الدخول لهذا الحساب مؤقتاً من هذا العنوان بسبب تكرار المحاولات الخاطئة. يرجى الانتظار 15 دقيقة."}` and response header `Retry-After: 900`.
-- **Anti-Denial-of-Service Verification**: Immediately attempt login for a *different email* from the same IP:
+    `{"error":"تم حظر محاولات الدخول لهذا الحساب مؤقتاً من هذا العنوان بسبب تكرار المحاولات الخاطئة. يرجى الانتظار 15 دقيقة."}`.
+  - **Retry-After Validation**: `Retry-After` exists and is a positive integer within the 900-second window (`1 <= Retry-After <= 900`).
+- **Anti-Denial-of-Service Verification (Independent of IP Exhaustion)**:
+  Because `TEST_IP_B` has only executed 6 requests (well under the 20-request IP limit), the broad IP bucket is **not** exhausted. Immediately attempt a login for an unaffected user from the same IP:
   ```bash
   curl -s -o /dev/null -w "%{http_code}" -X POST https://cysle-staging.altare.gg/api/auth/login \
     -H "Content-Type: application/json" \
+    -H "X-Forwarded-For: ${TEST_IP_B}" \
     -d '{"email":"unaffected-user@cysle.com","password":"wrongpassword123"}'
   ```
   - **Expected Status**: `HTTP 401` (NOT 429), proving that an attacker cannot lock out third-party accounts globally.
@@ -334,7 +348,7 @@ Because cloud-managed Redis instances cannot be paused with `docker pause`, simu
      -F "file=@test-doc.pdf" \
      -F "isPrivate=true"
    ```
-   - **Expected Status**: `HTTP/2 200 OK` (when Supabase Storage is configured) returning `{ "url": "/api/documents/priv_<uuid>.dat" }`. If unconfigured in staging, returns `HTTP 503`.
+   - **Expected Status**: `HTTP/2 200 OK` (when Supabase Storage is configured) returning `{ "url": "/api/documents/priv_<userId>_<uuid>.dat" }`. If unconfigured in staging, returns `HTTP 503`.
 3. **Private Document Access Verification**:
    - Directly requesting the storage key without session returns `HTTP 401`:
      ```bash
@@ -364,16 +378,41 @@ curl -s -i -b /tmp/buyer_cookie.txt -X POST https://cysle-staging.altare.gg/api/
 
 ## 6. Staging Database Migration & Rollback Safeguards
 
-### Pre-Deployment Database Snapshot
+### Durable Encrypted Pre-Deployment Backup
 Before running any migration against staging:
-1. Export a full PostgreSQL snapshot:
+1. Export a full PostgreSQL snapshot and write it to durable, encrypted cloud storage (never exclusively in `/tmp`):
    ```bash
-   pg_dump -Fc "$DIRECT_URL" -f /tmp/cysle_staging_pre_deploy_$(date +%Y%m%d_%H%M%S).dump
+   pg_dump -Fc "$DIRECT_URL" | gzip > /secure/backups/cysle_staging_pre_deploy_$(date +%Y%m%d_%H%M%S).dump.gz
    ```
 2. Verify migration status:
    ```bash
    npx prisma migrate status --schema=prisma/schema.postgresql.prisma
    ```
+
+### Why `pg_restore --clean` Does NOT Guarantee Exact Rollback
+- `pg_restore --clean` only generates `DROP` statements for objects present in the dump archive.
+- It does **not** drop new tables, enum types, or columns introduced by a failed migration that did not exist in the archive.
+- Foreign key dependencies and concurrent table locks can cause `--clean` drops to fail or abort mid-restore, leaving the database in an inconsistent hybrid state.
+
+### Reliable Blue/Green Database Rollback Procedure
+If a database rollback is required:
+1. **Restore to a Fresh Target Database**:
+   Create a fresh staging database (e.g. `cysle_staging_recovery_db`) and restore the clean snapshot into it:
+   ```bash
+   gunzip -c /secure/backups/cysle_staging_pre_deploy_*.dump.gz | pg_restore -d "$RECOVERY_DIRECT_URL"
+   ```
+2. **Validate the Recovered Database**:
+   ```bash
+   npx prisma migrate status --schema=prisma/schema.postgresql.prisma
+   # Run diagnostic query to verify data integrity
+   psql "$RECOVERY_DIRECT_URL" -c "SELECT COUNT(*) FROM \"User\";"
+   ```
+3. **Switch Environment Variables**:
+   Update `DATABASE_URL` and `DIRECT_URL` in the Altare Staging Console to point to the validated `cysle_staging_recovery_db`.
+4. **Redeploy / Restart App Instances**:
+   Traffic immediately connects to the clean, recovered database.
+5. **Decommission**:
+   Safely archive or drop the broken database after full validation.
 
 ### Expand-and-Contract Migration Pattern
 Because `prisma migrate deploy` does **not** auto-generate down migrations:
@@ -382,18 +421,6 @@ Because `prisma migrate deploy` does **not** auto-generate down migrations:
    - *Deploy Phase*: Deploy new code that writes to and reads from the new schema fields.
    - *Contract Phase*: Once the release is permanently stable, drop legacy columns in a subsequent migration.
 2. **Safe Code Rollback**: If the application code is rolled back, the previous build continues functioning without schema errors because no destructive changes were applied.
-
-### Emergency Database Recovery Procedure
-If a corrupted migration is applied to staging:
-1. Stop application traffic to prevent inconsistent writes.
-2. Restore the database from the pre-deployment dump:
-   ```bash
-   pg_restore --clean --if-exists -d "$DIRECT_URL" /tmp/cysle_staging_pre_deploy_*.dump
-   ```
-3. Re-verify migration status:
-   ```bash
-   npx prisma migrate status --schema=prisma/schema.postgresql.prisma
-   ```
 
 ### Safe Redis Rate-Limit Cleanup Procedure
 Never run `KEYS cysle:* | xargs del`. Use `SCAN` scoped strictly to test IP keys:

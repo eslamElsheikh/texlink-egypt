@@ -49,12 +49,20 @@ export async function GET(
       });
 
       if (doc) {
-        // User must be the owner of the factory
+        // User must be the owner of the factory or assigned to the factory
         authorized = doc.factory.userId === session.id || session.factoryId === doc.factoryId;
       } else {
         // If not yet linked in DB (e.g. during registration wizard before profile save),
-        // verify session belongs to authenticated factory user
-        authorized = Boolean(session.isFactory || session.role === "FACTORY");
+        // strictly verify that the storage key is explicitly scoped to the uploading user.
+        // Expected format: priv_<uploaderUserId>_<uuid>.<ext>
+        const match = safeKey.match(/^priv_([a-zA-Z0-9-]+)_([a-zA-Z0-9-]+)(\.[a-zA-Z0-9]+)?$/);
+        if (match) {
+          const uploaderUserId = match[1];
+          authorized = uploaderUserId === session.id;
+        } else {
+          // Unscoped, unknown, or unregistered keys without explicit user ownership are strictly rejected
+          authorized = false;
+        }
       }
     }
 
