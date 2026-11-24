@@ -8,6 +8,11 @@ export async function register() {
   // Only execute server-side startup validation in Node.js runtime
   if (process.env.NEXT_RUNTIME === "nodejs" || !process.env.NEXT_RUNTIME) {
     const { assertProductionStartupJwtSecret } = await import("@/lib/auth/jwt-config");
-    assertProductionStartupJwtSecret();
+    try {
+      assertProductionStartupJwtSecret();
+    } catch (err: any) {
+      console.error("FATAL: Server startup validation failed:", err?.message || err);
+      process.exit(1);
+    }
   }
 }

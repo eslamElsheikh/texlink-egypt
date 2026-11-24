@@ -213,23 +213,35 @@ jobs:
       - name: 4. Verify Container Startup Fails When JWT_SECRET Is Missing or Invalid
         run: |
           echo "Checking startup failure when JWT_SECRET is missing..."
-          MISSING_CODE=0
-          docker run --rm \
+          CID_MISSING=$(docker run -d \
             -e NODE_ENV=production \
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
-            cysle-egypt:production-ready || MISSING_CODE=$?
-          echo "Container exit code with missing secret: $MISSING_CODE"
-          test "$MISSING_CODE" -ne 0
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            cysle-egypt:production-ready)
+          sleep 4
+          RUNNING_MISSING=$(docker inspect --format='{{.State.Running}}' $CID_MISSING)
+          EXIT_MISSING=$(docker inspect --format='{{.State.ExitCode}}' $CID_MISSING)
+          echo "Missing Secret Container - Running: $RUNNING_MISSING, ExitCode: $EXIT_MISSING"
+          test "$RUNNING_MISSING" = "false"
+          test "$EXIT_MISSING" -ne 0
+          docker rm -f $CID_MISSING
 
           echo "Checking startup failure when JWT_SECRET is weak/placeholder (123456)..."
-          WEAK_CODE=0
-          docker run --rm \
+          CID_WEAK=$(docker run -d \
             -e NODE_ENV=production \
             -e JWT_SECRET="123456" \
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
-            cysle-egypt:production-ready || WEAK_CODE=$?
-          echo "Container exit code with weak secret: $WEAK_CODE"
-          test "$WEAK_CODE" -ne 0
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            cysle-egypt:production-ready)
+          sleep 4
+          RUNNING_WEAK=$(docker inspect --format='{{.State.Running}}' $CID_WEAK)
+          EXIT_WEAK=$(docker inspect --format='{{.State.ExitCode}}' $CID_WEAK)
+          echo "Weak Secret Container - Running: $RUNNING_WEAK, ExitCode: $EXIT_WEAK"
+          test "$RUNNING_WEAK" = "false"
+          test "$EXIT_WEAK" -ne 0
+          docker rm -f $CID_WEAK
 
       - name: 5. Verify Private Uploads Do Not Rely on Ephemeral Container Storage
         run: |
