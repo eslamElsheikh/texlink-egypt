@@ -349,44 +349,58 @@ describe("TexLink — Real Database Tenant-Isolation Integration Test Suite", ()
     });
 
     // 5 concurrent attempts to deduct 20 units each (total demand 100 units > 50 available)
-    const deductionAttempt = async (attemptId: number) => {
-      try {
-        return await prisma.$transaction(async (tx) => {
-          const freshItem = await tx.inventoryItem.findUnique({
-            where: { id: limitedItem.id },
-          });
+    const deductionAttempt = async (
+      attemptId: number,
+      maxRetries = 5
+    ): Promise<{ attemptId: number; success: boolean; reason?: string }> => {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          return await prisma.$transaction(
+            async (tx) => {
+              const freshItem = await tx.inventoryItem.findUnique({
+                where: { id: limitedItem.id },
+              });
 
-          if (!freshItem || freshItem.currentStock < 20) {
-            return { attemptId, success: false, reason: "رصيد المخزون لا يكفي" };
+              if (!freshItem || freshItem.currentStock < 20) {
+                return { attemptId, success: false, reason: "رصيد المخزون لا يكفي" };
+              }
+
+              const newStock = freshItem.currentStock - 20;
+              await tx.inventoryItem.update({
+                where: { id: limitedItem.id },
+                data: {
+                  currentStock: newStock,
+                  totalValuation: newStock * freshItem.unitCost,
+                },
+              });
+
+              await tx.stockMovement.create({
+                data: {
+                  factoryId: factoryAlphaId,
+                  inventoryItemId: limitedItem.id,
+                  movementType: "PRODUCTION_ISSUE",
+                  quantity: 20,
+                  previousStock: freshItem.currentStock,
+                  newStock,
+                  unitCost: freshItem.unitCost,
+                  notes: `سحب متزامن رقم ${attemptId}`,
+                },
+              });
+
+              return { attemptId, success: true };
+            },
+            { maxWait: 10000, timeout: 15000 }
+          );
+        } catch (err: any) {
+          if (attempt < maxRetries) {
+            // Backoff slightly to yield lock to concurrent transactions
+            await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+            continue;
           }
-
-          const newStock = freshItem.currentStock - 20;
-          await tx.inventoryItem.update({
-            where: { id: limitedItem.id },
-            data: {
-              currentStock: newStock,
-              totalValuation: newStock * freshItem.unitCost,
-            },
-          });
-
-          await tx.stockMovement.create({
-            data: {
-              factoryId: factoryAlphaId,
-              inventoryItemId: limitedItem.id,
-              movementType: "PRODUCTION_ISSUE",
-              quantity: 20,
-              previousStock: freshItem.currentStock,
-              newStock,
-              unitCost: freshItem.unitCost,
-              notes: `سحب متزامن رقم ${attemptId}`,
-            },
-          });
-
-          return { attemptId, success: true };
-        });
-      } catch {
-        return { attemptId, success: false, reason: "فشل المعاملة" };
+          return { attemptId, success: false, reason: `فشل المعاملة: ${err?.message || err}` };
+        }
       }
+      return { attemptId, success: false, reason: "تجاوز عدد المحاولات" };
     };
 
     // Execute all 5 deductions concurrently
