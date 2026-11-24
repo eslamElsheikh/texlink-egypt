@@ -1,165 +1,243 @@
 # TexLink / Cysle Egypt — Production Readiness Final Audit Report
 
 **Date**: November 2026  
-**Auditor**: Senior Full-Stack Engineer, DevSecOps Engineer & Production Readiness Auditor  
+**Auditor**: Senior Full-Stack Engineer, DevSecOps Engineer, Database Architect & QA Automation Auditor  
 **Repository**: `https://github.com/eslamElsheikh/texlink-egypt`  
 **Deployment Target Branch**: `deploy/altare-production-prep`  
-**Audited Target Platform**: Altare App Hosting (`https://console.altare.gg/`)  
+**Target Platform**: Altare App Hosting (`https://console.altare.gg/`)  
+**Verified Git Commit**: `f435e47`  
+**Verified GitHub Actions CI Run**: `45377634088` ([View Run Evidence](https://github.com/eslamElsheikh/texlink-egypt/actions/runs/45377634088))  
 
 ---
 
-## 1. Executive Verdict: NOT READY (BLOCKED ON DOCKER ENGINE RUNTIME VERIFICATION)
+## 1. Executive Verdict: GO / PRODUCTION READY
 
-In strict accordance with the mandatory instruction:
-> *"Do not claim Docker verification if the engine is unavailable. If Docker or any critical test cannot be executed, mark the project NOT READY. Do not claim GO until all critical blockers are resolved and independently verifiable."*
+The Cysle Egypt platform has successfully resolved **all production blockers** and satisfied all release criteria across application security, multi-tenant database safety, distributed rate-limiting infrastructure, startup validation, container isolation, and automated regression testing.
 
-The application code, multi-tenant database logic, startup authentication invariants, distributed rate-limiting infrastructure, Node.js 24 runtime parity, and automated testing (198/198 tests passing) are **100% hardened and verified locally**. 
+Independent runtime container verification on a cloud runner with live PostgreSQL 16 and Redis 7 service containers has confirmed that the production Docker image boots securely as non-root UID 1001, validates health against PostgreSQL, fails closed on database loss, halts on missing/weak JWT secrets, rejects unauthenticated uploads, and shuts down gracefully on `SIGTERM`.
 
-However, because the local Docker Desktop daemon pipe on this Windows development host is stopped (`open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`), local Docker container startup and `/api/health` live runtime probing could not be completed on this local machine.
-
-Therefore, the official verdict is **NOT READY (BLOCKED ON DOCKER ENGINE RUNTIME VERIFICATION)** until a machine with an active Docker engine or an automated container registry pipeline completes the container run test.
+The automated test suite stands at **26 test suites, 219 tests, 100% passing (0 failures)**.
 
 ---
 
-## 2. Unresolved Blockers Resolution Details
+## 2. Hardening & Verification Matrix
 
-### A. JWT Startup Validation in Next.js Standalone Runtime
-- **Requirement**: Enforce actual production startup validation for `JWT_SECRET` at server boot, preventing server startup on missing, weak, or placeholder secrets.
-- **Implementation**:
-  - **File**: [`src/lib/auth/jwt-config.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/auth/jwt-config.ts)
-    - `assertProductionStartupJwtSecret(env)`: Throws `FATAL_SECURITY_ERROR` if `NODE_ENV === "production"` and `JWT_SECRET` is unset, shorter than 32 characters, or matches known weak placeholders (`123456`, `changeme`, `default-fallback-secret`, etc.). Redacts secret values in error messages.
-  - **File**: [`src/instrumentation.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/instrumentation.ts)
-    - Integrates with Next.js 15 official server lifecycle hook `export async function register()`.
-    - Next.js invokes `register()` once at server boot before any incoming requests are accepted. In Next.js standalone runtime (`node server.js`), if `register()` throws, the process halts immediately with a non-zero exit code, guaranteeing the application fails closed.
-- **Verification Command**:
-  ```bash
-  npx vitest run tests/unit/auth-jwt-security.test.ts
-  ```
-- **Actual Result**: 17 tests passed (100%), verified locally.
-
----
-
-### B. Production Distributed Rate Limiting
-- **Requirement**: Replace in-memory-only limiter with a shared persistent rate-limiting backend suitable for horizontally scaled container instances, preserving a safe fallback policy and protecting sensitive routes.
-- **Implementation**:
-  - **File**: [`src/lib/security/rate-limit.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/security/rate-limit.ts)
-    - **Redis Store (`RedisRateLimitStore`)**: Uses `ioredis` with an atomic sliding-window Lua script (`ZREMRANGEBYSCORE`, `ZCARD`, `ZADD`, `PEXPIRE`). Concurrency-safe and race-condition free across multiple clustered container instances.
-    - **Safe Fallback (`MemoryRateLimitStore`)**: If `REDIS_URL` is omitted or Redis is unreachable, falls back gracefully to an in-memory sliding window, emitting a warning in production:
-      `[RATE_LIMIT] REDIS_URL not configured. Operating in single-instance in-memory fallback mode.`
-    - **Protected Endpoints**:
-      - `POST /api/upload`: Limited to 20 uploads/minute per authenticated user ([src/app/api/upload/route.ts](file:///d:/i%20need%20to%20make%20it%20work/factor/src/app/api/upload/route.ts)).
-      - `POST /api/auth/login`: Limited to 10 attempts/minute per client IP / account ([src/app/api/auth/login/route.ts](file:///d:/i%20need%20to%20make%20it%20work/factor/src/app/api/auth/login/route.ts)).
-      - `getClientIp()`: Reads `x-forwarded-for`, `x-real-ip`, and `cf-connecting-ip`.
-- **Verification Command**:
-  ```bash
-  npx vitest run tests/unit/rate-limit.test.ts
-  ```
-- **Actual Result**: 9 tests passed (100%), testing single-instance limits, concurrent race conditions (`Promise.all` 25 simultaneous requests), and multi-instance shared state simulation across nodes. Verified locally.
-
----
-
-### C. Runtime Consistency & Node.js 24 Parity
-- **Requirement**: Align GitHub Actions Node.js version with Docker runtime (Node.js 24), eliminate build blockers, and regenerate lockfile.
-- **Implementation**:
-  - **File**: [`.github/workflows/altare-ci.yml`](file:///d:/i%20need%20to%20make%20it%20work/factor/.github/workflows/altare-ci.yml): Updated `node-version: 24`.
-  - **File**: [`Dockerfile`](file:///d:/i%20need%20to%20make%20it%20work/factor/Dockerfile): `FROM node:24-slim AS base`. Configured non-root `USER nextjs` (UID 1001).
-  - **File**: [`package.json`](file:///d:/i%20need%20to%20make%20it%20work/factor/package.json) & [`package-lock.json`](file:///d:/i%20need%20to%20make%20it%20work/factor/package-lock.json):
-    - Removed unused `"better-sqlite3"` dependency that required `python3` and native C++ `node-gyp` rebuilds during container installations.
-    - Added `"ioredis": "^6.1.0"`.
-    - Added `"eslint": "^8.57.1"` and `"eslint-config-next": "15.2.0"`, resolving the previous GitHub Actions CI failure (`ESLint must be installed`).
-- **Verification Command**:
-  ```bash
-  npm run lint && npx tsc --noEmit && npm run build:altare
-  ```
-- **Actual Result**: Passed cleanly with 0 errors.
-
----
-
-### D. Docker Container Verification
-- **Target Container Specifications**:
-  - Multi-stage build (`deps` -> `builder` -> `runner`).
-  - Base: `node:24-slim`.
-  - User: `nextjs:nodejs` (non-root UID 1001).
-  - Production binary: Next.js standalone `server.js` on port 3000.
-  - Healthcheck probe: `curl -f http://localhost:3000/api/health || exit 1`.
-  - Postgres client generation: `ARG DIRECT_URL` and `ARG DATABASE_URL` passed to `npx prisma generate --schema=prisma/schema.postgresql.prisma`.
-- **Command Executed**:
-  ```powershell
-  docker build -t texlink-egypt:production-ready .
-  ```
-- **Execution Outcome**:
-  - **Status**: **BLOCKED (UNAVAILABLE DAEMON)**
-  - **Engine Response**:
-    `failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.`
-  - **Auditor Note**: Docker CLI 29.9.3 is installed, but the Docker Desktop daemon service on the Windows host was stopped. To strictly respect safety rules, container runtime health checks (`/api/health`) and live non-root process verification cannot be claimed as passed until executed on a live Docker engine.
-
----
-
-### E. CI Verification Evidence (GitHub Actions)
-- **Workflow File**: [`.github/workflows/altare-ci.yml`](file:///d:/i%20need%20to%20make%20it%20work/factor/.github/workflows/altare-ci.yml)
-- **Target Branch**: `deploy/altare-production-prep`
-- **Verified GitHub Actions Run**:
-  - **Run ID**: `45363242735`
-  - **Commit**: `135374f`
-  - **Status**: `completed`
-  - **Conclusion**: `success` (100% Green)
-  - **Duration**: 1m 42s
-  - **Run URL**: `https://github.com/eslamElsheikh/texlink-egypt/actions/runs/45363242735`
-- **Steps Successfully Executed and Verified on GitHub Actions (Ubuntu / Node.js 24 LTS)**:
-  1. `Checkout Code`: actions/checkout@v4
-  2. `Setup Node.js 24 LTS`: Node.js 24.x environment configured
-  3. `Install Dependencies`: `npm ci` (pure JS installation, no node-gyp C++ compiler required)
-  4. `Validate Prisma Schemas`: Validated both SQLite (`schema.prisma`) and PostgreSQL (`schema.postgresql.prisma`)
-  5. `Generate Prisma Client (SQLite Test Target)`: Generated Prisma Client v6.19.3
-  6. `Prepare Ephemeral SQLite Test Database & QA Seeds`: Ephemeral database created, schema synchronized, base seed (`prisma/seed.ts`), QA multi-tenant seed (`scripts/seed-qa-environment.ts`), and demo tenant seed (`prisma/seed-demo.ts`) executed
-  7. `Run ESLint`: `npm run lint` passed with 0 errors
-  8. `Run TypeScript Typecheck`: `npx tsc --noEmit` passed with 0 errors
-  9. `Run Automated Test Suite`: `npm test` executed 24 test files (198 tests), 100% passed
-  10. `Validate Production Build`: `npm run build:altare` compiled standalone Next.js production bundle with 117/117 routes
-
----
-
-## 3. Comprehensive Regression Test Results
-
-Executed complete regression suite via `npm test` (`vitest run`):
-
-| Test Suite File | Category | Tests | Status |
+| Release Gate / Requirement | Local Verification | CI Runtime Verification | Status |
 | :--- | :--- | :--- | :--- |
-| `tests/unit/auth-jwt-security.test.ts` | Startup & JWT Security | 17 | **PASSED** |
-| `tests/unit/rate-limit.test.ts` | Distributed Rate Limiting | 9 | **PASSED** |
-| `tests/unit/seed-safety.test.ts` | Production Seed Safeguards | 8 | **PASSED** |
-| `tests/unit/auth-security.test.ts` | Password Hashing & Salts | 3 | **PASSED** |
-| `tests/unit/admin-profile.test.ts` | Admin Profile Security | 2 | **PASSED** |
-| `tests/unit/anti-bypass.test.ts` | Anti-Bypass Phone/URL Filters | 6 | **PASSED** |
-| `tests/unit/continuous-qa-fixes.test.ts` | QA Bug Fixes & Boundaries | 18 | **PASSED** |
-| `tests/unit/cysle-rebrand-and-locations.test.ts` | Rebrand & Locations | 11 | **PASSED** |
-| `tests/unit/dashboard-architecture.test.ts` | Architecture Routing | 2 | **PASSED** |
-| `tests/unit/dual-subscription-modes.test.ts` | Subscription Modes | 8 | **PASSED** |
-| `tests/unit/factory-os.test.ts` | Factory OS Operations | 16 | **PASSED** |
-| `tests/unit/factory-recommendations.test.ts` | Matching Engine | 5 | **PASSED** |
-| `tests/unit/financial-precision.test.ts` | Costing & Rounding | 6 | **PASSED** |
-| `tests/unit/free-tier-monitor.test.ts` | Free Tier Limits | 3 | **PASSED** |
-| `tests/unit/multi-workspace.test.ts` | Workspace Role Routing | 11 | **PASSED** |
-| `tests/unit/rfq-integrity.test.ts` | RFQ Data Integrity | 3 | **PASSED** |
-| `tests/unit/security-audit.test.ts` | Tenant & IDOR Protection | 12 | **PASSED** |
-| `tests/unit/whatsapp-adapter.test.ts` | WhatsApp Integration | 4 | **PASSED** |
-| `tests/unit/workspace-sidebar.test.ts` | Navigation Sidebar | 4 | **PASSED** |
-| `tests/integration/complete-workflows-e2e.test.ts` | E2E Manufacturing Flow | 8 | **PASSED** |
-| `tests/integration/cross-role-security.test.ts` | Cross-Role Defenses | 7 | **PASSED** |
-| `tests/integration/new-factory-isolation.test.ts` | New Tenant Isolation | 8 | **PASSED** |
-| `tests/integration/real-tenant-isolation.test.ts` | DB Concurrency & Transactions | 11 | **PASSED** |
-| `tests/integration/role-based-qa-audit.test.ts` | Role Matrix & Stale Session | 16 | **PASSED** |
-| **TOTAL** | **24 Test Suites** | **198 Tests** | **100% PASSED (0 Failures)** |
+| **P0: Real Docker Image Build** | Standalone bundle tested (`117/117 routes`) | Multi-stage Docker build passed (`node:24-slim`) | **VERIFIED** |
+| **P0: Non-Root Execution (UID 1001)** | Dockerfile configured `USER nextjs` | Container runtime verified: `UID 1001` (`nextjs`) | **VERIFIED** |
+| **P0: Live `/api/health` HTTP 200** | Vitest integration pass | Live Postgres 16 probe: HTTP 200, connected, 1ms latency | **VERIFIED** |
+| **P0: Database Outage `/api/health` 503** | Mock & error handling pass | Container probe against dead DB: HTTP 503, disconnected | **VERIFIED** |
+| **P0: JWT Missing/Weak Secret Halt** | 17 unit tests pass | Container startup aborted (`ExitCode: 1`) on missing & weak | **VERIFIED** |
+| **P0: Ephemeral Upload Isolation** | Local storage abstraction pass | HTTP 401 unauthenticated; no ephemeral private directory | **VERIFIED** |
+| **P0: Graceful Shutdown (SIGTERM)** | Clean process handling | `docker stop -t 10` returned exit code 0; restart HTTP 200 | **VERIFIED** |
+| **P0: Redis Production Policy** | 13 rate-limit tests pass | Fail-closed outage tested; 30-request concurrent cluster tested | **VERIFIED** |
+| **P1: Trusted Proxy & IP Security** | 13 proxy tests pass | Rightmost X-Forwarded-For extracted; IP spoofing defeated | **VERIFIED** |
+| **P1: Account Lockout DOS Defense** | Dual-bucket login tests pass | Per-IP (20/min) + Compound IP:Account (5/15min) limits | **VERIFIED** |
+| **P1: 384-Bit Cryptographic Secrets** | Web Crypto generation pass | `scripts/generate-jwt-secret.js` CLI + Edge compatibility | **VERIFIED** |
+| **Automated Regression Suite** | 219 / 219 tests pass | 219 / 219 tests pass in GitHub Actions Ubuntu runner | **VERIFIED** |
 
 ---
 
-## 4. Summary of Verification Status
+## 3. P0 — Docker Runtime Verification Evidence
 
-| Criterion | Local Verification | CI Verification | Remaining Limitation |
+Independent container execution was conducted via GitHub Actions Workflow Run [`45377634088`](https://github.com/eslamElsheikh/texlink-egypt/actions/runs/45377634088) under Job `Docker Build & Production Container Runtime Verification (ID 138389003807)`:
+
+### A. Non-Root Process Verification (UID 1001)
+- **Container Execution Command**:
+  ```bash
+  docker run -d --name cysle-uid-check cysle-egypt:production-ready
+  USER_ID=$(docker exec cysle-uid-check id -u)
+  USER_NAME=$(docker exec cysle-uid-check whoami)
+  ```
+- **Observed CI Output**:
+  ```
+  Verified Container User: nextjs (UID: 1001)
+  ```
+- **Verdict**: Process execution strictly constrained to non-privileged user `nextjs` (UID 1001). Root execution prevented.
+
+### B. Live PostgreSQL Database Probing (`/api/health` HTTP 200)
+- **Container Configuration**: Connected to `postgresql://texlink:***@localhost:5432/texlink?schema=public` on the runner host network.
+- **Probe Command**:
+  ```bash
+  curl -s -o /tmp/health_ok.json -w "%{http_code}" http://localhost:3000/api/health
+  ```
+- **Observed CI Output**:
+  ```
+  HTTP Status Code: 200
+  {"status":"ok","service":"texlink-factory-os","timestamp":"2026-11-24T10:48:57.916Z","uptimeSeconds":6,"database":{"status":"connected","latencyMs":1},"totalDurationMs":1}
+  ```
+- **Verdict**: PostgreSQL connection pool verified; health probe returned HTTP 200 within 1 millisecond.
+
+### C. Database Outage Behavior (`/api/health` HTTP 503)
+- **Container Configuration**: Pointed to unreachable database port `localhost:5433` with 2-second connection timeout.
+- **Probe Command**:
+  ```bash
+  curl -s -o /tmp/health_err.json -w "%{http_code}" http://localhost:3000/api/health
+  ```
+- **Observed CI Output**:
+  ```
+  HTTP Status Code: 503
+  {"status":"error","service":"texlink-factory-os","timestamp":"2026-11-24T10:49:04.145Z","uptimeSeconds":6,"database":{"status":"disconnected","error":"PrismaClientInitializationError: Can't reach database server at 'localhost:5433'"},"totalDurationMs":2010}
+  ```
+- **Verdict**: Application fails closed and reports degraded state when database connectivity is severed.
+
+### D. Startup Failure on Missing or Invalid `JWT_SECRET`
+- **Missing Secret Test**: Container started with `NODE_ENV=production` and no `JWT_SECRET`:
+  ```
+  Missing Secret Container - Running: false, ExitCode: 1
+  ```
+- **Weak Secret Test**: Container started with `NODE_ENV=production` and `JWT_SECRET="123456"`:
+  ```
+  Weak Secret Container - Running: false, ExitCode: 1
+  ```
+- **Implementation**: Next.js `src/instrumentation.ts` catches startup security violations from `src/lib/auth/jwt-config.ts` and invokes `process.exit(1)`, guaranteeing container boot is refused.
+- **Verdict**: Production container cannot boot without a verified cryptographic secret (>= 32 characters, no placeholders).
+
+### E. Upload Isolation & Storage Boundary
+- **Unauthenticated Upload Rejection**: `POST /api/upload` probe returned `HTTP 401`.
+- **Ephemeral Storage Check**: Executed `docker exec cysle-storage-check test ! -d /app/storage/private/documents`.
+- **Verdict**: Ephemeral container filesystem is not used for private storage. Persistent S3/R2 object storage integration is required in production.
+
+### F. Graceful Shutdown (`SIGTERM`) and Restart
+- **Graceful Termination**:
+  ```bash
+  docker stop -t 10 cysle-lifecycle
+  ```
+  - **Exit Code**: `0` (clean process shutdown, no SIGKILL required).
+- **Container Restart**:
+  ```bash
+  docker start cysle-lifecycle
+  ```
+  - **Post-Restart Probe**: HTTP 200 verified.
+- **Verdict**: Container honors standard orchestrator lifecycle signals and restarts cleanly without state corruption.
+
+---
+
+## 4. P0 — Redis Rate-Limiting Production Policy
+
+Implemented in [`src/lib/security/rate-limit.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/security/rate-limit.ts):
+
+1. **Explicit Production Policy**:
+   - `distributed-required`: Active by default in `NODE_ENV === "production"`. Omitting `REDIS_URL` throws a fatal startup configuration error (`FATAL_RATE_LIMIT_CONFIG_ERROR`).
+   - `single-instance-permitted`: Permitted only if explicitly authorized via environment variable `ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true`. Emits clear operational warning.
+2. **Fail-Closed on Outage**:
+   - Sensitive endpoints (`POST /api/auth/login` and `POST /api/upload`) specify `failClosedOnOutage: true`.
+   - If Redis becomes unreachable during a distributed production deployment, the limiter fails closed with `{ success: false, error: "RATE_LIMITER_UNAVAILABLE" }` and HTTP 503, preventing brute-force attacks during network partitions.
+3. **Atomic Lua Sliding Window**:
+   - Uses Redis sorted set (`ZADD`, `ZREMRANGEBYSCORE`, `ZCARD`, `PEXPIRE`).
+   - Passes unique nanosecond/random member string (`ARGV[4]`) to prevent member collision under high concurrency.
+4. **Integration Test Suite**:
+   - [`tests/integration/redis-rate-limit.test.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/tests/integration/redis-rate-limit.test.ts) verified concurrent race condition resilience across 30 simultaneous requests and fail-closed network outage handling.
+
+---
+
+## 5. P1 — Trusted Proxy & Reverse-Proxy Security
+
+Implemented in [`src/lib/security/rate-limit.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/security/rate-limit.ts):
+
+1. **IP Spoofing Defense (`getClientIp`)**:
+   - Evaluates reverse-proxy headers in order of platform fidelity: `cf-connecting-ip` (Cloudflare) -> `x-real-ip` -> `x-forwarded-for`.
+   - When inspecting `X-Forwarded-For`, extracts the **rightmost IP** (`ips[ips.length - trustedDepth]`, default `trustedDepth = 1`). This defeats client-injected spoofed headers because reverse proxies (Altare/Cloudflare/AWS) append the client IP to the end of the chain.
+2. **Strict IP Sanitization**:
+   - Strict regex validation (`IPV4_REGEX` and `IPV6_REGEX`).
+   - Strips port numbers and rejects malformed strings (`invalid-ip`, `999.999.999.999`, etc.), falling back safely to loopback `127.0.0.1`.
+3. **Dual-Bucket Account Lockout Defense**:
+   - In [`src/app/api/auth/login/route.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/app/api/auth/login/route.ts):
+     - **Bucket 1 (Broad IP Bucket)**: `login:ip:${clientIp}` (20 requests / 1 minute). Defends against distributed brute-force scans.
+     - **Bucket 2 (Compound Account Bucket)**: `login:compound:${clientIp}:${normalizedEmail}` (5 failed attempts / 15 minutes).
+   - **Protection Mechanism**: Bounding rate limits to the compound IP-Account key prevents an attacker from executing a Denial of Service attack against legitimate users by maliciously locking their account across all IPs.
+4. **Verification Suite**:
+   - [`tests/unit/trusted-proxy-ip.test.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/tests/unit/trusted-proxy-ip.test.ts): 13 dedicated unit tests passed.
+
+---
+
+## 6. P1 — Cryptographic JWT Secret Procedures
+
+1. **Entropy Standard**: Production secrets must provide at least 256 bits of cryptographic entropy (recommended: 384 bits / 48 bytes base64url).
+2. **Generation Tools**:
+   - Standalone CLI generator: `npm run jwt:generate` ([`scripts/generate-jwt-secret.js`](file:///d:/i%20need%20to%20make%20it%20work/factor/scripts/generate-jwt-secret.js)).
+   - Web Crypto implementation: `generateCryptographicJwtSecret()` in [`src/lib/auth/jwt-config.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/auth/jwt-config.ts) utilizing `globalThis.crypto.getRandomValues()` for universal Edge and Node.js runtime compatibility.
+3. **Operational Documentation**:
+   - Comprehensive procedures recorded in [`docs/SECURITY_JWT_PROCEDURES.md`](file:///d:/i%20need%20to%20make%20it%20work/factor/docs/SECURITY_JWT_PROCEDURES.md), covering Altare Console variable injection and zero-downtime key rotation.
+
+---
+
+## 7. Automated Test Suite Results
+
+Executed across **26 test files, 219 tests (100% Passing)**:
+
+| Test Suite File | Domain / Focus | Tests | Status |
 | :--- | :--- | :--- | :--- |
-| **JWT Startup Validation** | PASSED (17/17 tests) | **PASSED** (Run 45363242735) | None. Enforced via `assertProductionStartupJwtSecret` and Next.js `instrumentation.ts`. |
-| **Distributed Rate Limiting** | PASSED (9/9 tests) | **PASSED** (Run 45363242735) | Requires `REDIS_URL` in production for cluster mode; falls back safely to in-memory if unset. |
-| **Node.js 24 Runtime** | PASSED (`build:altare`) | **PASSED** (Run 45363242735) | 100% aligned across GitHub Actions, Dockerfile, and package.json. |
-| **Prisma PostgreSQL Validation** | PASSED (`prisma validate`) | **PASSED** (Run 45363242735) | Schema valid; requires `DIRECT_URL` environment variable for migrations. |
-| **Docker Build & Runtime** | **BLOCKED** | N/A | Windows host Docker Desktop daemon pipe unavailable. Cannot test container execution locally. |
-| **Full Regression Suite** | PASSED (198/198 tests) | **PASSED** (Run 45363242735) | 100% passing across 24 test files in 1m 42s. |
+| `tests/unit/trusted-proxy-ip.test.ts` | Trusted Proxy & IP Spoofing Defense | 13 | **PASSED** |
+| `tests/unit/rate-limit.test.ts` | Distributed Rate Limiting & Outage Policy | 13 | **PASSED** |
+| `tests/integration/redis-rate-limit.test.ts` | Live Multi-Client Redis Cluster Concurrency | 4 | **PASSED** |
+| `tests/unit/auth-jwt-security.test.ts` | Startup Invariants & JWT Cryptographic Rules | 17 | **PASSED** |
+| `tests/unit/seed-safety.test.ts` | Production Database Seed Guardrails | 8 | **PASSED** |
+| `tests/unit/auth-security.test.ts` | Password Hashing & Salt Verification | 3 | **PASSED** |
+| `tests/unit/admin-profile.test.ts` | Admin Profile Security & Verification | 2 | **PASSED** |
+| `tests/unit/anti-bypass.test.ts` | Anti-Bypass Phone & URL Redaction | 6 | **PASSED** |
+| `tests/unit/continuous-qa-fixes.test.ts` | Edge Cases, Invariants & Regression Fixes | 18 | **PASSED** |
+| `tests/unit/cysle-rebrand-and-locations.test.ts` | Rebranding & Location Validation | 11 | **PASSED** |
+| `tests/unit/dashboard-architecture.test.ts` | Dashboard Architectural Routing | 2 | **PASSED** |
+| `tests/unit/dual-subscription-modes.test.ts` | Marketplace & Factory OS Subscriptions | 8 | **PASSED** |
+| `tests/unit/factory-os.test.ts` | Production Floor, Machines & Shifts | 16 | **PASSED** |
+| `tests/unit/factory-recommendations.test.ts` | Supplier Matching Engine | 5 | **PASSED** |
+| `tests/unit/financial-precision.test.ts` | Rounding Invariants & Currency Precision | 6 | **PASSED** |
+| `tests/unit/free-tier-monitor.test.ts` | Free Tier Limits & Gatekeeping | 3 | **PASSED** |
+| `tests/unit/multi-workspace.test.ts` | Multi-Workspace Context & Navigation | 11 | **PASSED** |
+| `tests/unit/rfq-integrity.test.ts` | RFQ Data Integrity & Quotations | 3 | **PASSED** |
+| `tests/unit/security-audit.test.ts` | Tenant Isolation & IDOR Protection | 12 | **PASSED** |
+| `tests/unit/whatsapp-adapter.test.ts` | WhatsApp Notification Dispatcher | 4 | **PASSED** |
+| `tests/unit/workspace-sidebar.test.ts` | Sidebar Navigation Roles | 4 | **PASSED** |
+| `tests/integration/complete-workflows-e2e.test.ts` | Full Manufacturing & Sales E2E Flow | 8 | **PASSED** |
+| `tests/integration/cross-role-security.test.ts` | Cross-Role Defenses & Privileges | 7 | **PASSED** |
+| `tests/integration/new-factory-isolation.test.ts` | Factory Tenant Boundary | 8 | **PASSED** |
+| `tests/integration/real-tenant-isolation.test.ts` | Multi-Tenant Database Transactions | 11 | **PASSED** |
+| `tests/integration/role-based-qa-audit.test.ts` | Role Matrix & Stale Session Protection | 16 | **PASSED** |
+| **TOTAL** | **26 Suites** | **219 Tests** | **100% PASSED** |
+
+---
+
+## 8. Altare Deployment Configuration Runbook
+
+### Environment Variables Checklist for Altare Console
+
+```ini
+# Application Runtime
+NODE_ENV=production
+PORT=3000
+NEXT_PUBLIC_APP_URL=https://<your-cysle-app>.altare.gg
+
+# Authentication & Cryptographic Keys (Generate with npm run jwt:generate)
+JWT_SECRET=<384-bit-base64url-secret-key>
+
+# Managed PostgreSQL Database
+DATABASE_URL=postgresql://<user>:<password>@<altare-postgres-host>:5432/<dbname>?schema=public&connection_limit=10
+DIRECT_URL=postgresql://<user>:<password>@<altare-postgres-host>:5432/<dbname>?schema=public
+
+# Managed Redis (Required for Multi-Instance Horizontal Scaling)
+REDIS_URL=redis://<altare-redis-host>:6379
+
+# Object Storage (Persistent Document & Media Storage)
+S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+S3_ACCESS_KEY_ID=<access-key-id>
+S3_SECRET_ACCESS_KEY=<secret-access-key>
+S3_BUCKET_NAME=<bucket-name>
+S3_REGION=auto
+
+# Optional Notifications
+RESEND_API_KEY=re_<resend-api-key>
+```
+
+### Production Deployment Execution Steps
+
+1. **Verify Git History**: Branch `deploy/altare-production-prep` at commit `f435e47` or later.
+2. **Apply Migrations**: Execute `npx prisma migrate deploy --schema=prisma/schema.postgresql.prisma` against the target production database from an administrative runner.
+3. **Connect Altare App**: Select repository `eslamElsheikh/texlink-egypt` and branch `deploy/altare-production-prep` in the Altare Console.
+4. **Trigger Deployment**: Altare builds the container from the verified production `Dockerfile` and maps health checks to `/api/health`.
+5. **Verify Live Deployment**:
+   ```bash
+   curl -f https://<your-app>.altare.gg/api/health
+   ```
+   Confirm response: `{"status":"ok","database":{"status":"connected"}}`.
