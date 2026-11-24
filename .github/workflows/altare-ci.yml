@@ -43,7 +43,7 @@ jobs:
           DATABASE_URL: "file:./dev.db"
         run: npx prisma generate --schema=prisma/schema.prisma
 
-      - name: Prepare Ephemeral SQLite Test Database & Demo Seed
+      - name: Prepare Ephemeral SQLite Test Database & QA Seeds
         env:
           DATABASE_URL: "file:./dev.db"
           DIRECT_URL: "file:./dev.db"
@@ -51,6 +51,7 @@ jobs:
         run: |
           npx prisma db push --schema=prisma/schema.prisma
           npx tsx prisma/seed.ts
+          npx tsx scripts/seed-qa-environment.ts
           npx tsx prisma/seed-demo.ts
 
       - name: Run ESLint
