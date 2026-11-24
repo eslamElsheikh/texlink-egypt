@@ -343,11 +343,11 @@ jobs:
           echo "HTTP Status during Redis outage: $OUTAGE_STATUS"
           cat /tmp/outage_res.json
           test "$OUTAGE_STATUS" = "503"
-          grep -q '"error":"RATE_LIMITER_UNAVAILABLE"' /tmp/outage_res.json
+          grep -q "RATE_LIMITER_UNAVAILABLE" /tmp/outage_res.json
 
           # Restart Redis container for clean teardown
           echo "Restoring Redis container..."
-          docker start $REDIS_CID
+          docker start $REDIS_CID || true
           sleep 2
 
           docker rm -f cysle-distributed

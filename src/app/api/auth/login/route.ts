@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     if (!ipRateCheck.success) {
       if (ipRateCheck.error === "RATE_LIMITER_UNAVAILABLE") {
         return NextResponse.json(
-          { error: "نظام حماية الحسابات غير متاح مؤقتاً، يرجى المحاولة بعد قليل" },
+          { error: "نظام حماية الحسابات غير متاح مؤقتاً، يرجى المحاولة بعد قليل", code: "RATE_LIMITER_UNAVAILABLE" },
           { status: 503 }
         );
       }
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     if (!compoundRateCheck.success) {
       if (compoundRateCheck.error === "RATE_LIMITER_UNAVAILABLE") {
         return NextResponse.json(
-          { error: "نظام حماية الحسابات غير متاح مؤقتاً، يرجى المحاولة بعد قليل" },
+          { error: "نظام حماية الحسابات غير متاح مؤقتاً، يرجى المحاولة بعد قليل", code: "RATE_LIMITER_UNAVAILABLE" },
           { status: 503 }
         );
       }

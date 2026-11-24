@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     if (!rateCheck.success) {
       if (rateCheck.error === "RATE_LIMITER_UNAVAILABLE") {
         return NextResponse.json(
-          { error: "خدمة رفع الملفات غير متاحة مؤقتاً لأسباب أمنية، يرجى المحاولة بعد قليل" },
+          { error: "خدمة رفع الملفات غير متاحة مؤقتاً لأسباب أمنية، يرجى المحاولة بعد قليل", code: "RATE_LIMITER_UNAVAILABLE" },
           { status: 503 }
         );
       }
