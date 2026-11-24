@@ -4,6 +4,7 @@ import path from "path";
 import crypto from "crypto";
 import { getCurrentUser } from "@/lib/auth/session";
 import { validateFileSignature } from "@/lib/storage/signatures";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import {
   isSupabaseStorageConfigured,
   uploadToSupabaseStorage,
@@ -38,6 +39,15 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "غير مصرح لك برفع الملفات، يرجى تسجيل الدخول أولاً" },
         { status: 401 }
+      );
+    }
+
+    // Rate limiting: 20 uploads per minute per user
+    const rateCheck = checkRateLimit(`upload_${session.id}`, { limit: 20, windowMs: 60 * 1000 });
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { error: "تم تجاوز الحد المسموح به لرفع الملفات (الحد الأقصى 20 ملف في الدقيقة). يرجى الانتظار قليلاً." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.resetInMs / 1000)) } }
       );
     }
 

@@ -1,0 +1,68 @@
+name: Altare Production Readiness CI
+
+on:
+  push:
+    branches:
+      - deploy/altare-production-prep
+  pull_request:
+    branches:
+      - deploy/altare-production-prep
+
+concurrency:
+  group: altare-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-test:
+    name: Lint, Test & Validate Altare Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schemas
+        env:
+          DATABASE_URL: "file:./dev.db"
+          DIRECT_URL: "file:./dev.db"
+        run: |
+          npx prisma validate --schema=prisma/schema.prisma
+          npx prisma validate --schema=prisma/schema.postgresql.prisma
+
+      - name: Generate Prisma Client (SQLite Test Target)
+        env:
+          DATABASE_URL: "file:./dev.db"
+        run: npx prisma generate --schema=prisma/schema.prisma
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run Automated Test Suite
+        env:
+          NODE_ENV: test
+          JWT_SECRET: "ci-testing-jwt-secret-key-minimum-32-characters-entropy-check"
+          DATABASE_URL: "file:./dev.db"
+          DIRECT_URL: "file:./dev.db"
+        run: npm test
+
+      - name: Validate Production Build
+        env:
+          NODE_ENV: production
+          JWT_SECRET: "ci-testing-jwt-secret-key-minimum-32-characters-entropy-check"
+          DATABASE_URL: "file:./dev.db"
+          DIRECT_URL: "file:./dev.db"
+          NEXT_PUBLIC_APP_URL: "https://cysle-ci.example.com"
+          RESEND_API_KEY: "re_ci_placeholder_key"
+        run: npm run build:altare

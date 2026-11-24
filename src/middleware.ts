@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET || "texlink-egypt-default-fallback-secret-2026"
-);
-
-const COOKIE_NAME = "texlink_session";
+import { getJwtSecretKey, JWT_ALGORITHM, COOKIE_NAME } from "@/lib/auth/jwt-config";
 
 export interface TokenPayload {
   id: string;
@@ -52,7 +47,10 @@ export async function middleware(request: NextRequest) {
 
   if (token) {
     try {
-      const { payload } = await jwtVerify(token, SECRET_KEY);
+      const secretKey = getJwtSecretKey();
+      const { payload } = await jwtVerify(token, secretKey, {
+        algorithms: [JWT_ALGORITHM],
+      });
       session = payload as unknown as TokenPayload;
     } catch {
       session = null;

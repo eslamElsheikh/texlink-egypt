@@ -1,11 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET || "texlink-egypt-default-fallback-secret-2026"
-);
-
-const COOKIE_NAME = "texlink_session";
+import { getJwtSecretKey, JWT_ALGORITHM, COOKIE_NAME } from "./jwt-config";
 
 export interface SessionUser {
   id: string;
@@ -20,18 +15,22 @@ export interface SessionUser {
 }
 
 export async function createSessionToken(user: SessionUser): Promise<string> {
+  const secretKey = getJwtSecretKey();
   return new SignJWT({ ...user })
-    .setProtectedHeader({ alg: "HS256" })
+    .setProtectedHeader({ alg: JWT_ALGORITHM })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(SECRET_KEY);
+    .sign(secretKey);
 }
 
 export async function verifySessionToken(
   token: string
 ): Promise<SessionUser | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY);
+    const secretKey = getJwtSecretKey();
+    const { payload } = await jwtVerify(token, secretKey, {
+      algorithms: [JWT_ALGORITHM],
+    });
     return payload as unknown as SessionUser;
   } catch {
     return null;

@@ -1,9 +1,57 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
 
+/**
+ * Multi-indicator guard to protect production and customer databases from destructive wiping.
+ */
+export function assertSafeSeedExecution(env: NodeJS.ProcessEnv = process.env): void {
+  const nodeEnv = env.NODE_ENV || "development";
+  const dbUrl = env.DATABASE_URL || "";
+  const allowDestructive = env.ALLOW_DESTRUCTIVE_DEV_SEED === "true";
+
+  // Check 1: Refuse when NODE_ENV is production
+  if (nodeEnv === "production") {
+    throw new Error(
+      "FATAL_SEED_REFUSAL: Destructive seed execution is strictly prohibited when NODE_ENV is set to 'production'."
+    );
+  }
+
+  // Check 2: Remote / Cloud PostgreSQL URL detection
+  const isRemoteDb =
+    dbUrl.startsWith("postgres://") ||
+    dbUrl.startsWith("postgresql://") ||
+    dbUrl.includes("supabase.co") ||
+    dbUrl.includes("altare.gg") ||
+    dbUrl.includes(".rds.amazonaws.com") ||
+    dbUrl.includes(".internal");
+
+  if (isRemoteDb && !allowDestructive) {
+    throw new Error(
+      "FATAL_SEED_REFUSAL: Detected connection to a remote/PostgreSQL database without explicit ALLOW_DESTRUCTIVE_DEV_SEED=true. Aborting to protect database integrity."
+    );
+  }
+
+  // Check 3: Explicit disable flag
+  if (env.ALLOW_DESTRUCTIVE_DEV_SEED === "false") {
+    throw new Error(
+      "FATAL_SEED_REFUSAL: Destructive seed execution was explicitly disabled via ALLOW_DESTRUCTIVE_DEV_SEED=false."
+    );
+  }
+}
+
+export function generateSeedPassword(): string {
+  if (process.env.DEV_SEED_PASSWORD) {
+    return process.env.DEV_SEED_PASSWORD;
+  }
+  return "DevSeed!" + crypto.randomBytes(8).toString("base64url") + "#26";
+}
+
 async function main() {
+  assertSafeSeedExecution();
+
   console.log("🌱 Starting TexLink Egypt database seed...");
 
   // Clean up existing data in correct relational order
@@ -51,7 +99,8 @@ async function main() {
   await prisma.buyerProfile.deleteMany();
   await prisma.user.deleteMany();
 
-  const defaultPasswordHash = await bcrypt.hash("123456", 10);
+  const seedPlainPassword = generateSeedPassword();
+  const defaultPasswordHash = await bcrypt.hash(seedPlainPassword, 10);
 
   // 1. Categories
   const categories = await Promise.all([
@@ -1994,16 +2043,19 @@ async function main() {
   });
 
   console.log("✅ Seed completed successfully!");
-  console.log("👤 Admin: admin@texlink-egypt.com / 123456");
-  console.log("👤 Buyer 1: buyer1@cairo-apparel.com / 123456");
-  console.log("👤 Factory 1: elnasr@mahalla-textile.com / 123456");
+  console.log(`🔑 Seeded Accounts Credentials (Password: ${seedPlainPassword}):`);
+  console.log("👤 Admin: admin@texlink-egypt.com");
+  console.log("👤 Buyer 1: buyer1@cairo-apparel.com");
+  console.log("👤 Factory 1: elnasr@mahalla-textile.com");
 }
 
-main()
-  .catch((e) => {
-    console.error("❌ Seed failed:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (process.argv[1] && (process.argv[1].endsWith("seed.ts") || process.argv[1].endsWith("seed.js"))) {
+  main()
+    .catch((e) => {
+      console.error("❌ Seed failed:", e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
