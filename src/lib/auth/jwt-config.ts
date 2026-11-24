@@ -6,8 +6,6 @@
  * in production environments if secrets are missing or weak.
  */
 
-import crypto from "crypto";
-
 const KNOWN_INSECURE_SECRETS = new Set([
   "texlink-egypt-default-fallback-secret-2026",
   "default-fallback-secret",
@@ -110,7 +108,17 @@ export function generateCryptographicJwtSecret(byteLength: number = 48): string 
   if (byteLength < 32) {
     throw new Error("Cryptographic secret generation requires at least 32 bytes (256 bits) of entropy.");
   }
-  return crypto.randomBytes(byteLength).toString("base64url");
+  const bytes = new Uint8Array(byteLength);
+  globalThis.crypto.getRandomValues(bytes);
+
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 /**
