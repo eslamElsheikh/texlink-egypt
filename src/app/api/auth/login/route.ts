@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSessionToken } from "@/lib/auth/session";
+import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -11,6 +12,15 @@ const loginSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rateCheck = await checkRateLimit(`login_ip_${ip}`, { limit: 10, windowMs: 60 * 1000 });
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { error: "تم تجاوز الحد المسموح به لمحاولات تسجيل الدخول. يرجى الانتظار لمدة دقيقة." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.resetInMs / 1000)) } }
+      );
+    }
+
     const body = await req.json();
     const parsed = loginSchema.safeParse(body);
 

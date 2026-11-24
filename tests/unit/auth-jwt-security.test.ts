@@ -87,6 +87,53 @@ describe("P0 Auth & JWT Security Validation", () => {
     });
   });
 
+  describe("Server Startup Security Hook (assertProductionStartupJwtSecret & instrumentation)", () => {
+    it("fails production startup immediately if JWT_SECRET is missing", async () => {
+      const { assertProductionStartupJwtSecret } = await import("@/lib/auth/jwt-config");
+      expect(() =>
+        assertProductionStartupJwtSecret({
+          NODE_ENV: "production",
+        })
+      ).toThrowError(/JWT_SECRET environment variable is missing in production/i);
+    });
+
+    it("fails production startup immediately if JWT_SECRET is weak", async () => {
+      const { assertProductionStartupJwtSecret } = await import("@/lib/auth/jwt-config");
+      expect(() =>
+        assertProductionStartupJwtSecret({
+          NODE_ENV: "production",
+          JWT_SECRET: "weak-short",
+        })
+      ).toThrowError(/does not meet minimum cryptographic length requirement/i);
+    });
+
+    it("fails production startup immediately if JWT_SECRET matches a known placeholder", async () => {
+      const { assertProductionStartupJwtSecret } = await import("@/lib/auth/jwt-config");
+      expect(() =>
+        assertProductionStartupJwtSecret({
+          NODE_ENV: "production",
+          JWT_SECRET: "texlink-egypt-default-fallback-secret-2026",
+        })
+      ).toThrowError(/known insecure default\/placeholder secret in production/i);
+    });
+
+    it("succeeds production startup when valid high-entropy key is provided", async () => {
+      const { assertProductionStartupJwtSecret } = await import("@/lib/auth/jwt-config");
+      expect(() =>
+        assertProductionStartupJwtSecret({
+          NODE_ENV: "production",
+          JWT_SECRET: "a-valid-cryptographically-secure-key-32-chars-long!",
+        })
+      ).not.toThrow();
+    });
+
+    it("executes through Next.js register hook without error when valid", async () => {
+      process.env.JWT_SECRET = "a-valid-cryptographically-secure-key-32-chars-long!";
+      const { register } = await import("@/instrumentation");
+      await expect(register()).resolves.toBeUndefined();
+    });
+  });
+
   describe("Session Token Lifecycle & Tamper Protection", () => {
     const validTestUser: SessionUser = {
       id: "usr_qa_factory_owner_2026",

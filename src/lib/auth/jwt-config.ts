@@ -94,3 +94,14 @@ export function resolveJwtSecret(env: NodeJS.ProcessEnv = process.env): JwtValid
 export function getJwtSecretKey(): Uint8Array {
   return resolveJwtSecret().secretKey;
 }
+
+/**
+ * Asserts valid JWT cryptographic secret at application startup.
+ * Called during Next.js server bootstrap via instrumentation.register().
+ * In production, halts startup immediately if the secret is missing, weak (<32 chars),
+ * or set to a known placeholder.
+ */
+export function assertProductionStartupJwtSecret(env: NodeJS.ProcessEnv = process.env): void {
+  resolveJwtSecret(env);
+}
+

@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     }
 
     // Rate limiting: 20 uploads per minute per user
-    const rateCheck = checkRateLimit(`upload_${session.id}`, { limit: 20, windowMs: 60 * 1000 });
+    const rateCheck = await checkRateLimit(`upload_${session.id}`, { limit: 20, windowMs: 60 * 1000 });
     if (!rateCheck.success) {
       return NextResponse.json(
         { error: "تم تجاوز الحد المسموح به لرفع الملفات (الحد الأقصى 20 ملف في الدقيقة). يرجى الانتظار قليلاً." },
