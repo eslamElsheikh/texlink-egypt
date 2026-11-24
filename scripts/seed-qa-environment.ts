@@ -464,6 +464,7 @@ async function main() {
 
   // 7. Write Secure Local Credentials File (git-ignored)
   const localCredsPath = path.join(process.cwd(), "artifacts", "qa-accounts.local.md");
+  fs.mkdirSync(path.dirname(localCredsPath), { recursive: true });
   let localMd = `# Cysle Egypt — QA Test Accounts Credentials (CONFIDENTIAL / LOCAL ONLY)\n`;
   localMd += `> Generated: ${new Date().toISOString()} | STRICTLY GIT-IGNORED. DO NOT COMMIT OR EXPOSE.\n\n`;
   localMd += `| الدور (Role) | البريد الإلكتروني | المصنع التابع له | كلمة المرور (Plain Password) |\n`;

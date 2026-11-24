@@ -49,6 +49,7 @@ jobs:
           DIRECT_URL: "file:./dev.db"
           ALLOW_DESTRUCTIVE_DEV_SEED: "true"
         run: |
+          mkdir -p artifacts
           npx prisma db push --schema=prisma/schema.prisma
           npx tsx prisma/seed.ts
           npx tsx scripts/seed-qa-environment.ts
