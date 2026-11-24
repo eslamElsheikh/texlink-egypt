@@ -58,40 +58,86 @@ describe("P1 Trusted Proxy & Client IP Security", () => {
   });
 
   describe("Trusted Reverse Proxy Extraction & Spoofing Defenses", () => {
-    it("reads cf-connecting-ip first when verified by Cloudflare Edge", () => {
+    it("ignores spoofed cf-connecting-ip by default when Cloudflare is unverified, extracting verified X-Forwarded-For", () => {
+      // Scenario: Attacker passes a spoofed cf-connecting-ip header to an origin not verified to be behind Cloudflare
+      const req = new Request("http://localhost/api/auth/login", {
+        headers: {
+          "cf-connecting-ip": "1.2.3.4",
+          "x-forwarded-for": "156.204.10.5",
+        },
+      });
+      // By default (trustCloudflare: false), cf-connecting-ip is untrusted and ignored
+      expect(getClientIp(req)).toBe("156.204.10.5");
+    });
+
+    it("honors cf-connecting-ip when trustCloudflare is explicitly enabled", () => {
       const req = new Request("http://localhost/api/auth/login", {
         headers: {
           "cf-connecting-ip": "197.35.40.12",
-          "x-real-ip": "10.0.0.5",
-          "x-forwarded-for": "1.2.3.4, 10.0.0.5",
+          "x-forwarded-for": "10.0.0.5",
         },
       });
-      expect(getClientIp(req)).toBe("197.35.40.12");
+      expect(getClientIp(req, { trustCloudflare: true })).toBe("197.35.40.12");
     });
 
-    it("reads x-real-ip when set by trusted Altare / NGINX Ingress", () => {
+    it("ignores spoofed x-real-ip by default when Ingress overwrite is unverified, extracting verified X-Forwarded-For", () => {
+      // Scenario: Attacker sends a spoofed x-real-ip header
+      const req = new Request("http://localhost/api/auth/login", {
+        headers: {
+          "x-real-ip": "5.6.7.8",
+          "x-forwarded-for": "41.233.15.80",
+        },
+      });
+      // By default (trustRealIp: false), x-real-ip is untrusted and ignored
+      expect(getClientIp(req)).toBe("41.233.15.80");
+    });
+
+    it("honors x-real-ip when trustRealIp is explicitly enabled by verified ingress configuration", () => {
       const req = new Request("http://localhost/api/auth/login", {
         headers: {
           "x-real-ip": "41.233.15.80",
           "x-forwarded-for": "1.1.1.1, 41.233.15.80",
         },
       });
-      expect(getClientIp(req)).toBe("41.233.15.80");
+      expect(getClientIp(req, { trustRealIp: true })).toBe("41.233.15.80");
     });
 
-    it("defends against X-Forwarded-For prefix spoofing by inspecting the trusted ingress hop", () => {
-      // Scenario: Malicious client sends a fake header "X-Forwarded-For: 203.0.113.195".
-      // The reverse proxy appends the real connecting IP: "203.0.113.195, 156.204.10.5".
-      // Our implementation must NOT trust the client-controlled first IP (203.0.113.195),
+    it("defends against forged X-Forwarded-For prefixes by inspecting the trusted ingress hop", () => {
+      // Scenario: Malicious client sends a fake header "X-Forwarded-For: 203.0.113.195, 198.51.100.1".
+      // The reverse proxy appends the real connecting IP: "203.0.113.195, 198.51.100.1, 156.204.10.5".
+      // Our implementation must NOT trust the client-controlled prefixes,
       // but must extract the rightmost IP (156.204.10.5) appended by the trusted ingress proxy.
       const req = new Request("http://localhost/api/auth/login", {
         headers: {
-          "x-forwarded-for": "203.0.113.195, 156.204.10.5",
+          "x-forwarded-for": "203.0.113.195, 198.51.100.1, 156.204.10.5",
         },
       });
 
       // Default trusted depth is 1 (direct reverse proxy ingress)
       expect(getClientIp(req)).toBe("156.204.10.5");
+    });
+
+    it("handles multiple proxy hops correctly when trustedDepth is configured", () => {
+      // Scenario: Topology has 2 trusted proxy hops:
+      // Client (198.51.100.25) -> Cloud CDN (10.0.0.1) -> Internal Ingress LB (10.0.0.2) -> App
+      // X-Forwarded-For: 198.51.100.25, 10.0.0.1
+      const req = new Request("http://localhost/api/auth/login", {
+        headers: {
+          "x-forwarded-for": "198.51.100.25, 10.0.0.1",
+        },
+      });
+
+      // With trustedDepth: 2, extracts the client IP 2 hops back from the right
+      expect(getClientIp(req, { trustedDepth: 2 })).toBe("198.51.100.25");
+    });
+
+    it("handles duplicate and comma-delimited IP values within headers", () => {
+      const req = new Request("http://localhost/api/auth/login", {
+        headers: {
+          "x-forwarded-for": "192.168.1.1, 192.168.1.1",
+        },
+      });
+      expect(getClientIp(req)).toBe("192.168.1.1");
     });
 
     it("handles single-IP X-Forwarded-For header when no spoofing prefix exists", () => {

@@ -157,7 +157,7 @@ jobs:
             -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
-            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            -e REDIS_URL="redis://localhost:6379" \
             cysle-egypt:production-ready
 
           sleep 5
@@ -177,7 +177,6 @@ jobs:
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             -e REDIS_URL="redis://localhost:6379" \
-            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
             cysle-egypt:production-ready
 
           sleep 6
@@ -198,7 +197,7 @@ jobs:
             -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5433/unreachable_db?schema=public&connect_timeout=2" \
             -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5433/unreachable_db?schema=public&connect_timeout=2" \
-            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            -e REDIS_URL="redis://localhost:6379" \
             cysle-egypt:production-ready
 
           sleep 6
@@ -217,7 +216,7 @@ jobs:
             -e NODE_ENV=production \
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
-            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            -e REDIS_URL="redis://localhost:6379" \
             cysle-egypt:production-ready)
           sleep 4
           RUNNING_MISSING=$(docker inspect --format='{{.State.Running}}' $CID_MISSING)
@@ -233,7 +232,7 @@ jobs:
             -e JWT_SECRET="123456" \
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
-            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            -e REDIS_URL="redis://localhost:6379" \
             cysle-egypt:production-ready)
           sleep 4
           RUNNING_WEAK=$(docker inspect --format='{{.State.Running}}' $CID_WEAK)
@@ -250,7 +249,7 @@ jobs:
             -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
-            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            -e REDIS_URL="redis://localhost:6379" \
             cysle-egypt:production-ready
 
           sleep 6
@@ -271,7 +270,6 @@ jobs:
             -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             -e REDIS_URL="redis://localhost:6379" \
-            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
             cysle-egypt:production-ready
 
           sleep 6
@@ -292,3 +290,116 @@ jobs:
           echo "Restart healthcheck status: $RESTART_STATUS"
           test "$RESTART_STATUS" = "200"
           docker rm -f cysle-lifecycle
+
+      - name: 7. Scenario A: Distributed Production with Live Redis & Outage Fail-Closed
+        run: |
+          echo "Starting production container with live Redis and PostgreSQL (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER is omitted)..."
+          docker run -d --name cysle-distributed --network host \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e REDIS_URL="redis://localhost:6379" \
+            cysle-egypt:production-ready
+
+          sleep 6
+
+          # 1. Verify container started successfully and is running
+          RUNNING=$(docker inspect --format='{{.State.Running}}' cysle-distributed)
+          echo "Distributed container running status: $RUNNING"
+          test "$RUNNING" = "true"
+
+          # 2. Verify healthcheck is 200
+          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+          echo "Distributed healthcheck status: $HEALTH_STATUS"
+          test "$HEALTH_STATUS" = "200"
+
+          # 3. Verify sensitive rate-limited operation uses Redis
+          echo "Executing login attempt to populate Redis rate limit keys..."
+          LOGIN_STATUS=$(curl -s -o /tmp/login_res.json -w "%{http_code}" \
+            -X POST http://localhost:3000/api/auth/login \
+            -H "Content-Type: application/json" \
+            -H "X-Forwarded-For: 198.51.100.42" \
+            -d '{"email":"distributed-test@example.com","password":"invalidpassword123"}')
+          echo "Login attempt HTTP status: $LOGIN_STATUS"
+
+          # Verify rate-limit key was recorded in Redis
+          REDIS_CID=$(docker ps | grep -i "redis" | awk '{print $1}' | head -n 1)
+          echo "Identified Redis Service Container: $REDIS_CID"
+          REDIS_KEYS=$(docker exec $REDIS_CID redis-cli keys "cysle:ratelimit:*" || true)
+          echo "Redis Rate Limit Keys recorded:"
+          echo "$REDIS_KEYS"
+          echo "$REDIS_KEYS" | grep -q "cysle:ratelimit:"
+
+          # 4. Verify Redis outage behavior causes HTTP 503 for sensitive operations
+          echo "Stopping Redis service container to simulate live infrastructure outage..."
+          docker stop $REDIS_CID
+
+          OUTAGE_STATUS=$(curl -s -o /tmp/outage_res.json -w "%{http_code}" \
+            -X POST http://localhost:3000/api/auth/login \
+            -H "Content-Type: application/json" \
+            -H "X-Forwarded-For: 198.51.100.42" \
+            -d '{"email":"distributed-test@example.com","password":"invalidpassword123"}')
+          echo "HTTP Status during Redis outage: $OUTAGE_STATUS"
+          cat /tmp/outage_res.json
+          test "$OUTAGE_STATUS" = "503"
+          grep -q '"error":"RATE_LIMITER_UNAVAILABLE"' /tmp/outage_res.json
+
+          # Restart Redis container for clean teardown
+          echo "Restoring Redis container..."
+          docker start $REDIS_CID
+          sleep 2
+
+          docker rm -f cysle-distributed
+
+      - name: 8. Scenario B: Missing Redis Halts Production Startup (FATAL_RATE_LIMIT_CONFIG_ERROR)
+        run: |
+          echo "Starting container with NODE_ENV=production, REDIS_URL absent, and ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER absent..."
+          CID_NO_REDIS=$(docker run -d \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            cysle-egypt:production-ready)
+
+          sleep 4
+
+          RUNNING=$(docker inspect --format='{{.State.Running}}' $CID_NO_REDIS)
+          EXIT_CODE=$(docker inspect --format='{{.State.ExitCode}}' $CID_NO_REDIS)
+          LOGS=$(docker logs $CID_NO_REDIS 2>&1)
+          echo "Container Running: $RUNNING, ExitCode: $EXIT_CODE"
+          echo "Container Startup Logs:"
+          echo "$LOGS"
+
+          test "$RUNNING" = "false"
+          test "$EXIT_CODE" -ne 0
+          echo "$LOGS" | grep -q "FATAL_RATE_LIMIT_CONFIG_ERROR"
+          docker rm -f $CID_NO_REDIS
+
+      - name: 9. Scenario C: Explicit Single-Instance Exception (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true)
+        run: |
+          echo "Starting container with REDIS_URL absent BUT ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true..."
+          docker run -d --name cysle-single-instance --network host \
+            -e NODE_ENV=production \
+            -e JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
+            -e DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
+            -e ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER="true" \
+            cysle-egypt:production-ready
+
+          sleep 6
+
+          RUNNING=$(docker inspect --format='{{.State.Running}}' cysle-single-instance)
+          LOGS=$(docker logs cysle-single-instance 2>&1)
+          echo "Container Running: $RUNNING"
+          echo "Container Startup Logs:"
+          echo "$LOGS"
+
+          test "$RUNNING" = "true"
+          echo "$LOGS" | grep -q "Operating under explicit single-instance exception"
+
+          # Verify application is healthy and memory rate limiter functions
+          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+          test "$HEALTH_STATUS" = "200"
+
+          docker rm -f cysle-single-instance

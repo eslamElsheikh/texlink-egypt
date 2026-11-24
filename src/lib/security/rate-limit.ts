@@ -247,13 +247,43 @@ export function getRateLimitStore(env: NodeJS.ProcessEnv = process.env): RateLim
 
     if (env.NODE_ENV === "production") {
       console.warn(
-        "⚠️ [RATE_LIMIT] Operating in approved single-instance in-memory limiter mode (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true)."
+        "⚠️ [RATE_LIMIT] Operating under explicit single-instance exception (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true)."
       );
     }
     activeStore = new MemoryRateLimitStore();
   }
 
   return activeStore;
+}
+
+/**
+ * Asserts valid rate-limiting configuration at application startup.
+ * Called during Next.js server bootstrap via instrumentation.register().
+ * In production, halts startup immediately if REDIS_URL is omitted unless
+ * ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true is explicitly set.
+ */
+export function assertProductionStartupRateLimit(env: NodeJS.ProcessEnv = process.env): void {
+  const isProduction = env.NODE_ENV === "production";
+  if (!isProduction) return;
+
+  // Skip during build phase
+  if (env.NEXT_PHASE === "phase-production-build") return;
+
+  const policy = getRateLimitPolicy(env);
+  const redisUrl = env.REDIS_URL?.trim();
+
+  if (!redisUrl) {
+    if (policy === "distributed-required") {
+      throw new Error(
+        "FATAL_RATE_LIMIT_CONFIG_ERROR: REDIS_URL environment variable is strictly required for multi-instance production deployments. " +
+        "Silent in-memory fallback is disabled in production to guarantee cluster-wide security. " +
+        "For verified single-instance environments, explicitly set ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true."
+      );
+    }
+    console.warn(
+      "⚠️ [RATE_LIMIT] REDIS_URL not configured. Operating under explicit single-instance exception (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true)."
+    );
+  }
 }
 
 export function setRateLimitStore(store: RateLimitStore | null): void {
@@ -286,9 +316,11 @@ const IPV6_REGEX = /^(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{
  */
 export function isValidIp(ip: string): boolean {
   if (!ip || typeof ip !== "string") return false;
-  const trimmed = ip.trim();
+  let cleanIp = ip.trim();
+  if (cleanIp.includes(",")) {
+    cleanIp = cleanIp.split(",")[0].trim();
+  }
   // Strip port if present (e.g., "192.168.1.1:8080" or "[::1]:8080")
-  let cleanIp = trimmed;
   if (cleanIp.startsWith("[") && cleanIp.includes("]")) {
     cleanIp = cleanIp.substring(1, cleanIp.indexOf("]"));
   } else if (cleanIp.includes(".") && cleanIp.includes(":")) {
@@ -304,6 +336,9 @@ export function isValidIp(ip: string): boolean {
 export function sanitizeIp(rawIp: string): string {
   if (!rawIp || typeof rawIp !== "string") return "unknown";
   let clean = rawIp.trim();
+  if (clean.includes(",")) {
+    clean = clean.split(",")[0].trim();
+  }
   if (clean.startsWith("[") && clean.includes("]")) {
     clean = clean.substring(1, clean.indexOf("]"));
   } else if (clean.includes(".") && clean.includes(":")) {
@@ -318,6 +353,8 @@ export function sanitizeIp(rawIp: string): string {
 export interface GetClientIpOptions {
   trustProxy?: boolean;
   trustedDepth?: number;
+  trustCloudflare?: boolean;
+  trustRealIp?: boolean;
 }
 
 /**
@@ -327,30 +364,39 @@ export interface GetClientIpOptions {
  * 1. Never trusts arbitrary client-supplied X-Forwarded-For prefixes.
  *    When behind a reverse proxy (Altare Ingress, Cloudflare, AWS ALB),
  *    the trusted ingress appends the real client connection IP to the end of the chain.
- *    Reading the rightmost IP prevents client spoofing attacks.
- * 2. Checks Cloudflare `cf-connecting-ip` first (which is sanitized and signed by Cloudflare edge).
- * 3. Strictly validates IPv4 and IPv6 format; rejects malformed or script-injected values.
+ *    Reading the rightmost IP (`ips.length - trustedDepth`) prevents client spoofing attacks.
+ * 2. Cloudflare `cf-connecting-ip` is strictly guarded: only trusted if `trustCloudflare` is true
+ *    or `TRUST_CF_CONNECTING_IP === "true"`. This prevents spoofed `cf-connecting-ip` headers from bypassing limits.
+ * 3. Ingress `x-real-ip` is strictly guarded: only trusted if `trustRealIp` is true
+ *    or `TRUST_REAL_IP === "true"`.
+ * 4. Strictly validates IPv4 and IPv6 format; rejects malformed, injection, or duplicate values.
  */
 export function getClientIp(req: Request, options?: GetClientIpOptions): string {
   const trustProxy = options?.trustProxy ?? (process.env.TRUST_PROXY !== "false");
   const trustedDepth = options?.trustedDepth ?? Number(process.env.TRUSTED_PROXY_DEPTH || 1);
+  const trustCloudflare = options?.trustCloudflare ?? (process.env.TRUST_CF_CONNECTING_IP === "true");
+  const trustRealIp = options?.trustRealIp ?? (process.env.TRUST_REAL_IP === "true");
 
   if (!trustProxy) {
     return "127.0.0.1";
   }
 
-  // 1. Cloudflare edge verified client IP
-  const cfConnectingIp = req.headers.get("cf-connecting-ip");
-  if (cfConnectingIp) {
-    const sanitized = sanitizeIp(cfConnectingIp);
-    if (sanitized !== "unknown") return sanitized;
+  // 1. Cloudflare edge verified client IP (only when verified in infrastructure)
+  if (trustCloudflare) {
+    const cfConnectingIp = req.headers.get("cf-connecting-ip");
+    if (cfConnectingIp) {
+      const sanitized = sanitizeIp(cfConnectingIp);
+      if (sanitized !== "unknown") return sanitized;
+    }
   }
 
-  // 2. Altare / Ingress standard X-Real-IP
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) {
-    const sanitized = sanitizeIp(realIp);
-    if (sanitized !== "unknown") return sanitized;
+  // 2. Ingress X-Real-IP (only when ingress is verified to overwrite this header)
+  if (trustRealIp) {
+    const realIp = req.headers.get("x-real-ip");
+    if (realIp) {
+      const sanitized = sanitizeIp(realIp);
+      if (sanitized !== "unknown") return sanitized;
+    }
   }
 
   // 3. X-Forwarded-For: client, proxy1, proxy2...

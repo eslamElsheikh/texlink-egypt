@@ -4,6 +4,7 @@ import {
   setRateLimitStore,
   getRateLimitStore,
   getRateLimitPolicy,
+  assertProductionStartupRateLimit,
   MemoryRateLimitStore,
   RedisRateLimitStore,
   RateLimitStore,
@@ -186,6 +187,41 @@ describe("P1 Distributed Production Rate Limiting", () => {
       expect(result.reason).toContain("Distributed rate limiter is unavailable");
       await brokenStore.disconnect();
     });
+
+    it("asserts production startup halts when REDIS_URL is missing in distributed mode", () => {
+      expect(() =>
+        assertProductionStartupRateLimit({
+          NODE_ENV: "production",
+        })
+      ).toThrowError(/FATAL_RATE_LIMIT_CONFIG_ERROR/);
+    });
+
+    it("asserts production startup permits single-instance exception with warning", () => {
+      expect(() =>
+        assertProductionStartupRateLimit({
+          NODE_ENV: "production",
+          ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER: "true",
+        })
+      ).not.toThrow();
+    });
+
+    it("asserts production startup succeeds when REDIS_URL is provided", () => {
+      expect(() =>
+        assertProductionStartupRateLimit({
+          NODE_ENV: "production",
+          REDIS_URL: "redis://10.0.0.1:6379",
+        })
+      ).not.toThrow();
+    });
+
+    it("skips rate limit startup check during Next.js build phase", () => {
+      expect(() =>
+        assertProductionStartupRateLimit({
+          NODE_ENV: "production",
+          NEXT_PHASE: "phase-production-build",
+        })
+      ).not.toThrow();
+    });
   });
 
   describe("Client IP Extraction", () => {
@@ -197,18 +233,18 @@ describe("P1 Distributed Production Rate Limiting", () => {
       expect(getClientIp(req)).toBe("10.0.0.1");
     });
 
-    it("falls back to X-Real-IP when X-Forwarded-For is omitted", () => {
+    it("falls back to X-Real-IP when X-Forwarded-For is omitted and trustRealIp is enabled", () => {
       const req = new Request("http://localhost/api/test", {
         headers: { "x-real-ip": "41.233.15.80" },
       });
-      expect(getClientIp(req)).toBe("41.233.15.80");
+      expect(getClientIp(req, { trustRealIp: true })).toBe("41.233.15.80");
     });
 
-    it("falls back to CF-Connecting-IP for Cloudflare CDN traffic", () => {
+    it("falls back to CF-Connecting-IP when verified for Cloudflare CDN traffic", () => {
       const req = new Request("http://localhost/api/test", {
         headers: { "cf-connecting-ip": "197.35.40.12" },
       });
-      expect(getClientIp(req)).toBe("197.35.40.12");
+      expect(getClientIp(req, { trustCloudflare: true })).toBe("197.35.40.12");
     });
 
     it("defaults safely to localhost when no proxy headers are present", () => {
