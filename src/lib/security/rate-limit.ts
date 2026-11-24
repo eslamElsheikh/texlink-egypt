@@ -49,13 +49,14 @@ local key = KEYS[1]
 local now = tonumber(ARGV[1])
 local window = tonumber(ARGV[2])
 local limit = tonumber(ARGV[3])
+local member = ARGV[4]
 local clearBefore = now - window
 
 redis.call('ZREMRANGEBYSCORE', key, 0, clearBefore)
 local currentCount = redis.call('ZCARD', key)
 
 if currentCount < limit then
-    redis.call('ZADD', key, now, now .. '-' .. math.random(1000, 9999))
+    redis.call('ZADD', key, now, member)
     redis.call('PEXPIRE', key, window)
     return {1, limit - currentCount - 1, window}
 else
@@ -143,8 +144,7 @@ export class RedisRateLimitStore implements RateLimitStore {
     this.client = new Redis(redisUrl, {
       maxRetriesPerRequest: 1,
       connectTimeout: 3000,
-      enableOfflineQueue: false,
-      lazyConnect: true,
+      commandTimeout: 3000,
     });
 
     this.client.on("error", (err) => {
@@ -159,11 +159,8 @@ export class RedisRateLimitStore implements RateLimitStore {
     failClosedOnOutage = (this.policy === "distributed-required")
   ): Promise<RateLimitResult> {
     try {
-      if (this.client.status !== "ready") {
-        await this.client.connect().catch(() => {});
-      }
-
       const now = Date.now();
+      const member = `${now}-${Math.random().toString(36).substring(2, 10)}`;
       const redisKey = `cysle:ratelimit:${key}`;
       const res = (await this.client.eval(
         SLIDING_WINDOW_LUA,
@@ -171,7 +168,8 @@ export class RedisRateLimitStore implements RateLimitStore {
         redisKey,
         now,
         windowMs,
-        limit
+        limit,
+        member
       )) as [number, number, number];
 
       const success = res[0] === 1;
