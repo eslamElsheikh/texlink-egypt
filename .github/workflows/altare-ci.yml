@@ -291,7 +291,7 @@ jobs:
           test "$RESTART_STATUS" = "200"
           docker rm -f cysle-lifecycle
 
-      - name: 7. Scenario A: Distributed Production with Live Redis & Outage Fail-Closed
+      - name: "7. Scenario A: Distributed Production with Live Redis & Outage Fail-Closed"
         run: |
           echo "Starting production container with live Redis and PostgreSQL (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER is omitted)..."
           docker run -d --name cysle-distributed --network host \
@@ -352,7 +352,7 @@ jobs:
 
           docker rm -f cysle-distributed
 
-      - name: 8. Scenario B: Missing Redis Halts Production Startup (FATAL_RATE_LIMIT_CONFIG_ERROR)
+      - name: "8. Scenario B: Missing Redis Halts Production Startup (FATAL_RATE_LIMIT_CONFIG_ERROR)"
         run: |
           echo "Starting container with NODE_ENV=production, REDIS_URL absent, and ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER absent..."
           CID_NO_REDIS=$(docker run -d \
@@ -376,7 +376,7 @@ jobs:
           echo "$LOGS" | grep -q "FATAL_RATE_LIMIT_CONFIG_ERROR"
           docker rm -f $CID_NO_REDIS
 
-      - name: 9. Scenario C: Explicit Single-Instance Exception (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true)
+      - name: "9. Scenario C: Explicit Single-Instance Exception (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true)"
         run: |
           echo "Starting container with REDIS_URL absent BUT ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true..."
           docker run -d --name cysle-single-instance --network host \
