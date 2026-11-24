@@ -64,8 +64,8 @@ USER nextjs
 
 EXPOSE 3000
 
-# Container Healthcheck targeting the unauthenticated /api/health endpoint
+# Container Healthcheck targeting the unauthenticated /api/health endpoint on $PORT
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
+  CMD curl -fsS "http://127.0.0.1:${PORT:-3000}/api/health" || exit 1
 
 CMD ["node", "server.js"]

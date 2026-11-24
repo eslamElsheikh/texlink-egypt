@@ -4,7 +4,7 @@
 **Deployment Target Branch**: `deploy/altare-production-prep`  
 **Repository**: `https://github.com/eslamElsheikh/texlink-egypt`  
 **Runtime**: Next.js 15 Standalone (Node.js 24 LTS, UID 1001 Non-Root)  
-**Security Status**: Verified via CI Run #45386700749 (Docker, PostgreSQL 16, Redis 7, JWT, 227+ Automated Tests)
+**Pre-Deployment Verification**: Audited via local test suite and GitHub Actions CI (`altare-ci.yml`) on the target commit prior to staging rollout.
 
 ---
 
@@ -16,11 +16,25 @@ Follow these steps sequentially prior to routing traffic to staging:
   - [ ] Managed PostgreSQL 15/16 database provisioned (`cysle_staging_db`) with PgBouncer connection pooling.
   - [ ] Managed Redis 7+ instance provisioned (`cysle_staging_redis`) in the same internal network/VPC.
   - [ ] Internal network / VPC security groups configured so the application runner can reach PostgreSQL (port 6543 pooled, port 5432 direct) and Redis (port 6379).
-  - [ ] Supabase Storage project provisioned with two designated buckets: `factory-private-documents` (private read/write) and `texlink-public-assets` (public read).
+  - [ ] Supabase Storage project provisioned with two designated buckets:
+    - `factory-private-documents`: **Public bucket = OFF**, zero `anon` or unprivileged `authenticated` RLS `SELECT`/`INSERT` policies on `storage.objects` (must be verified in Supabase Dashboard; server accesses strictly via `SUPABASE_SERVICE_ROLE_KEY`).
+    - `texlink-public-assets`: **Public bucket = ON** (for public catalog images and factory logos only).
 - [ ] **2. Durable Encrypted Database Backup & Pre-Migration Verification**
-  - [ ] **MANDATORY**: Take a full PostgreSQL snapshot and store it in durable, encrypted cloud storage (never exclusively in `/tmp`):
+  - [ ] **Prerequisites**: PostgreSQL 15/16 client tools (`pg_dump`, `pg_restore`), `DIRECT_URL` pointing to port `5432`, and an encrypted durable storage target (e.g., KMS-encrypted S3/object storage or GPG-encrypted volume; never rely on `/tmp`).
+  - [ ] **MANDATORY**: Take a full fail-fast PostgreSQL custom-format snapshot (`pg_dump -Fc` fails immediately on any error without being masked by shell pipes), validate readability, encrypt, and upload to durable storage:
     ```bash
-    pg_dump -Fc "$DIRECT_URL" | gzip > /secure/backups/cysle_staging_pre_deploy_$(date +%Y%m%d_%H%M%S).dump.gz
+    set -euo pipefail
+    BACKUP_TS=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="cysle_staging_pre_deploy_${BACKUP_TS}.dump"
+
+    # Direct -f output ensures non-zero exit if pg_dump fails (never mask errors via unguarded pipes)
+    pg_dump -Fc --no-owner --no-privileges "$DIRECT_URL" -f "$BACKUP_FILE"
+    test -s "$BACKUP_FILE"
+    pg_restore --list "$BACKUP_FILE" >/dev/null
+
+    # Encrypt and store durably in cloud object storage (example: AWS S3 with SSE-KMS)
+    aws s3 cp "$BACKUP_FILE" "s3://<durable-encrypted-backup-bucket>/cysle-staging/${BACKUP_FILE}" --sse aws:kms
+    rm -f "$BACKUP_FILE"
     ```
   - [ ] Inspect existing migration status against PostgreSQL schema:
     ```bash
@@ -114,12 +128,12 @@ TRUST_REAL_IP="false"
 # ------------------------------------------------------------------------------
 # 6. PERSISTENT OBJECT STORAGE (SUPABASE STORAGE API)
 # ------------------------------------------------------------------------------
-# Note: Cysle Egypt uses the Supabase Storage JavaScript client (@supabase/supabase-js).
-# The repository does NOT implement generic AWS S3 SDK (@aws-sdk/client-s3).
+# Note: Private bucket operations strictly require SUPABASE_SERVICE_ROLE_KEY on the server.
+# The application NEVER falls back to NEXT_PUBLIC_SUPABASE_ANON_KEY for private documents.
 NEXT_PUBLIC_SUPABASE_URL="https://<staging-project-id>.supabase.co"
-# Public anon key for accessing public catalog assets
+# Public anon key strictly for accessing public catalog assets (texlink-public-assets)
 NEXT_PUBLIC_SUPABASE_ANON_KEY="<staging-supabase-anon-key>"
-# Service role key strictly used server-side for private document upload and signed verification
+# Required server-side secret exclusively for private document upload & download (factory-private-documents)
 SUPABASE_SERVICE_ROLE_KEY="<staging-supabase-service-role-key>"
 
 # ------------------------------------------------------------------------------
@@ -252,15 +266,16 @@ curl -s -b /tmp/staging_cookies.txt https://cysle-staging.altare.gg/api/auth/me
 ```
 
 ### Test 5A: IP-Wide Rate-Limit Smoke Test (Broad Volumetric Defense)
-- **Rule**: 20 requests per 60 seconds per IP (`login:ip:${ip}`).
-- **Isolation Guarantee**: Uses dedicated test source IP `198.51.100.11` and **distinct email addresses** (`ip-flood-${i}@cysle.com`) so that the compound account limit is never reached.
+- **Rule**: 20 requests per 60 seconds per real client IP (`login:ip:${ip}`).
+- **Proxy / Source-IP Reality**: `getClientIp()` selects the **rightmost** proxy-appended IP (`ips[ips.length - trustedDepth]`). Client-supplied `X-Forwarded-For` headers are prepended on the left and ignored behind a reverse proxy, so sending spoofed `X-Forwarded-For` values from one machine will **not** isolate buckets.
+- **Isolation Requirement**: Run Test 5A and Test 5B using **one** of these valid methods:
+  - **Method 1 (Distinct Egress Hosts)**: Run Test 5A from Egress Host A (real public IP A) and Test 5B from Egress Host B (genuinely different real public IP B).
+  - **Method 2 (Window Expiry on Single Host)**: Run Test 5A from your testing host, **wait > 60 seconds** until its 60-second `login:ip:${ip}` rolling window expires completely, then run Test 5B from the same real external IP.
+- **Account Isolation**: Uses **distinct email addresses** (`ip-flood-${i}@cysle.com`) so that the 5-attempt compound account limit is never triggered.
 ```bash
-TEST_IP_A="198.51.100.11"
-
 for i in {1..25}; do
   RES=$(curl -s -i -X POST https://cysle-staging.altare.gg/api/auth/login \
     -H "Content-Type: application/json" \
-    -H "X-Forwarded-For: ${TEST_IP_A}" \
     -d "{\"email\":\"ip-flood-${i}@cysle.com\",\"password\":\"wrongpassword123\"}")
   
   STATUS=$(echo "$RES" | grep -i "^HTTP" | awk '{print $2}')
@@ -275,16 +290,14 @@ done
   - **Retry-After Validation**: `Retry-After` exists and is a positive integer within the 60-second window (`1 <= Retry-After <= 60`). Do **not** expect exact equality to 60 due to rolling millisecond windows.
 
 ### Test 5B: Compound IP + Account Rate-Limit Smoke Test (Targeted Brute-Force Defense)
-- **Rule**: 5 attempts per 15 minutes per IP + normalized email pair (`login:compound:${ip}:${email}`).
-- **Isolation Guarantee**: Uses independent test source IP `198.51.100.22` targeting the **exact same email address**.
+- **Rule**: 5 attempts per 15 minutes per real IP + normalized email pair (`login:compound:${ip}:${email}`).
+- **Precondition**: Execute from a genuinely distinct external egress IP (Method 1) **or** after waiting **> 60 seconds** following Test 5A so the 20-request IP bucket is completely reset (Method 2).
 ```bash
-TEST_IP_B="198.51.100.22"
 TARGET_EMAIL="targeted-account@cysle.com"
 
 for i in {1..6}; do
   RES=$(curl -s -i -X POST https://cysle-staging.altare.gg/api/auth/login \
     -H "Content-Type: application/json" \
-    -H "X-Forwarded-For: ${TEST_IP_B}" \
     -d "{\"email\":\"${TARGET_EMAIL}\",\"password\":\"wrongpassword123\"}")
   
   STATUS=$(echo "$RES" | grep -i "^HTTP" | awk '{print $2}')
@@ -296,16 +309,15 @@ done
   - Attempts 1–5: Return `HTTP 401` (credential validation fails).
   - Attempt 6: Returns `HTTP 429 Too Many Requests` with compound lockout error:
     `{"error":"تم حظر محاولات الدخول لهذا الحساب مؤقتاً من هذا العنوان بسبب تكرار المحاولات الخاطئة. يرجى الانتظار 15 دقيقة."}`.
-  - **Retry-After Validation**: `Retry-After` exists and is a positive integer within the 900-second window (`1 <= Retry-After <= 900`).
+  - **Retry-After Validation**: `Retry-After` exists and is a positive integer within the 900-second window (`1 <= Retry-After <= 900`). Do **not** expect exact equality to 900.
 - **Anti-Denial-of-Service Verification (Independent of IP Exhaustion)**:
-  Because `TEST_IP_B` has only executed 6 requests (well under the 20-request IP limit), the broad IP bucket is **not** exhausted. Immediately attempt a login for an unaffected user from the same IP:
+  Because the current real external IP has executed only 6 requests in its fresh 60-second window (well under the 20-request IP quota), immediately attempt a login for an unaffected email from the **same** external host:
   ```bash
   curl -s -o /dev/null -w "%{http_code}" -X POST https://cysle-staging.altare.gg/api/auth/login \
     -H "Content-Type: application/json" \
-    -H "X-Forwarded-For: ${TEST_IP_B}" \
     -d '{"email":"unaffected-user@cysle.com","password":"wrongpassword123"}'
   ```
-  - **Expected Status**: `HTTP 401` (NOT 429), proving that an attacker cannot lock out third-party accounts globally.
+  - **Expected Status**: `HTTP 401` (NOT `429`), proving that targeted lockout on `TARGET_EMAIL` does not exhaust or lock out unaffected accounts on the same IP. (Keep the forged-header diagnostic probe in Section 4 strictly separate from Test 5A/5B.)
 
 ### Test 6: Redis Outage Fail-Closed Behavior on Managed Redis
 Because cloud-managed Redis instances cannot be paused with `docker pause`, simulate an outage using one of two non-destructive procedures:
@@ -379,12 +391,22 @@ curl -s -i -b /tmp/buyer_cookie.txt -X POST https://cysle-staging.altare.gg/api/
 ## 6. Staging Database Migration & Rollback Safeguards
 
 ### Durable Encrypted Pre-Deployment Backup
-Before running any migration against staging:
-1. Export a full PostgreSQL snapshot and write it to durable, encrypted cloud storage (never exclusively in `/tmp`):
+Before running any migration against staging (requires `pg_dump`/`pg_restore`, encrypted object storage write access, and `DIRECT_URL` port `5432`):
+1. Export a fail-fast custom-format PostgreSQL snapshot, verify archive integrity, and upload to durable encrypted storage (never rely on `/tmp`):
    ```bash
-   pg_dump -Fc "$DIRECT_URL" | gzip > /secure/backups/cysle_staging_pre_deploy_$(date +%Y%m%d_%H%M%S).dump.gz
+   set -euo pipefail
+   BACKUP_TS=$(date +%Y%m%d_%H%M%S)
+   BACKUP_FILE="cysle_staging_pre_deploy_${BACKUP_TS}.dump"
+
+   # Fail immediately if pg_dump errors (no unguarded pipe masking failure)
+   pg_dump -Fc --no-owner --no-privileges "$DIRECT_URL" -f "$BACKUP_FILE"
+   test -s "$BACKUP_FILE"
+   pg_restore --list "$BACKUP_FILE" >/dev/null
+
+   aws s3 cp "$BACKUP_FILE" "s3://<durable-encrypted-backup-bucket>/cysle-staging/${BACKUP_FILE}" --sse aws:kms
+   rm -f "$BACKUP_FILE"
    ```
-2. Verify migration status:
+2. Verify migration status against direct PostgreSQL connection:
    ```bash
    npx prisma migrate status --schema=prisma/schema.postgresql.prisma
    ```
@@ -395,24 +417,31 @@ Before running any migration against staging:
 - Foreign key dependencies and concurrent table locks can cause `--clean` drops to fail or abort mid-restore, leaving the database in an inconsistent hybrid state.
 
 ### Reliable Blue/Green Database Rollback Procedure
-If a database rollback is required:
-1. **Restore to a Fresh Target Database**:
-   Create a fresh staging database (e.g. `cysle_staging_recovery_db`) and restore the clean snapshot into it:
+If a database rollback is required (never restore destructively over an active database):
+1. **Provision & Restore to a Fresh Target Database**:
+   Create a brand-new staging database (e.g. `cysle_staging_recovery_db` with direct connection `$RECOVERY_DIRECT_URL` and pooled connection `$RECOVERY_DATABASE_URL`), download the verified encrypted backup, and restore with `--exit-on-error`:
    ```bash
-   gunzip -c /secure/backups/cysle_staging_pre_deploy_*.dump.gz | pg_restore -d "$RECOVERY_DIRECT_URL"
+   set -euo pipefail
+   RESTORE_FILE="cysle_staging_recovery.dump"
+   aws s3 cp "s3://<durable-encrypted-backup-bucket>/cysle-staging/<backup-filename>.dump" "$RESTORE_FILE"
+   pg_restore --no-owner --no-privileges --exit-on-error -d "$RECOVERY_DIRECT_URL" "$RESTORE_FILE"
+   rm -f "$RESTORE_FILE"
    ```
-2. **Validate the Recovered Database**:
+2. **Validate the Recovered Database BEFORE Switching Application Traffic**:
    ```bash
-   npx prisma migrate status --schema=prisma/schema.postgresql.prisma
-   # Run diagnostic query to verify data integrity
+   set -euo pipefail
+   DATABASE_URL="$RECOVERY_DIRECT_URL" DIRECT_URL="$RECOVERY_DIRECT_URL" \
+     npx prisma migrate status --schema=prisma/schema.postgresql.prisma
+   # Verify schema & core row counts on the fresh recovery database
    psql "$RECOVERY_DIRECT_URL" -c "SELECT COUNT(*) FROM \"User\";"
+   psql "$RECOVERY_DIRECT_URL" -c "SELECT COUNT(*) FROM \"FactoryProfile\";"
    ```
 3. **Switch Environment Variables**:
-   Update `DATABASE_URL` and `DIRECT_URL` in the Altare Staging Console to point to the validated `cysle_staging_recovery_db`.
+   Only after Step 2 succeeds, update `DATABASE_URL` (port 6543 pooled) and `DIRECT_URL` (port 5432 direct) in the Altare Staging Console to point to the validated `cysle_staging_recovery_db`.
 4. **Redeploy / Restart App Instances**:
    Traffic immediately connects to the clean, recovered database.
 5. **Decommission**:
-   Safely archive or drop the broken database after full validation.
+   Safely archive or drop the broken database after full post-switch validation.
 
 ### Expand-and-Contract Migration Pattern
 Because `prisma migrate deploy` does **not** auto-generate down migrations:

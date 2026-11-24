@@ -5,8 +5,10 @@ import crypto from "crypto";
 import { getCurrentUser } from "@/lib/auth/session";
 import { validateFileSignature } from "@/lib/storage/signatures";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { buildPrivateStorageKey } from "@/lib/storage/keys";
 import {
-  isSupabaseStorageConfigured,
+  isSupabasePrivateStorageConfigured,
+  isSupabasePublicStorageConfigured,
   uploadToSupabaseStorage,
   SUPABASE_BUCKETS,
 } from "@/lib/storage/supabase";
@@ -113,10 +115,9 @@ export async function POST(req: Request) {
 
     // 5. Store according to confidentiality classification
     if (isPrivate) {
-      const randomId = crypto.randomUUID();
-      const storageKey = `priv_${session.id}_${randomId}.dat`;
+      const storageKey = buildPrivateStorageKey(session.id);
 
-      if (isSupabaseStorageConfigured()) {
+      if (isSupabasePrivateStorageConfigured()) {
         const uploadRes = await uploadToSupabaseStorage({
           bucket: SUPABASE_BUCKETS.PRIVATE_DOCUMENTS,
           storageKey,
@@ -131,13 +132,13 @@ export async function POST(req: Request) {
           );
         }
       } else {
-        if (process.env.NODE_ENV === "production") {
+        if (process.env.NODE_ENV === "production" || Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim())) {
           return NextResponse.json(
-            { error: "وحدة التخزين السحابية غير مهيأة. يرجى تهيئة Supabase Storage في بيئة الإنتاج." },
+            { error: "وحدة التخزين السحابية الخاصة غير مهيأة (مفتاح الصلاحيات الخادم مطلوب). يرجى تهيئة SUPABASE_SERVICE_ROLE_KEY." },
             { status: 503 }
           );
         }
-        // Fallback to local private storage strictly in development/test
+        // Fallback to local private storage strictly in offline development/test
         const privateDir = path.join(process.cwd(), "storage", "private", "documents");
         await mkdir(privateDir, { recursive: true });
         const filePath = path.join(privateDir, storageKey);
@@ -164,7 +165,7 @@ export async function POST(req: Request) {
 
     let publicUrl = `/uploads/${publicFileName}`;
 
-    if (isSupabaseStorageConfigured()) {
+    if (isSupabasePublicStorageConfigured()) {
       const uploadRes = await uploadToSupabaseStorage({
         bucket: SUPABASE_BUCKETS.PUBLIC_ASSETS,
         storageKey: publicFileName,
@@ -172,9 +173,13 @@ export async function POST(req: Request) {
         contentType: file.type,
       });
 
-      if (uploadRes.success && uploadRes.url) {
-        publicUrl = uploadRes.url;
+      if (!uploadRes.success || !uploadRes.url) {
+        return NextResponse.json(
+          { error: "فشل حفظ الملف العام في وحدة التخزين السحابية" },
+          { status: 500 }
+        );
       }
+      publicUrl = uploadRes.url;
     } else {
       if (process.env.NODE_ENV === "production") {
         return NextResponse.json(

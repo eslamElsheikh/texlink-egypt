@@ -193,28 +193,37 @@ describe("TexLink — Real Database Tenant-Isolation Integration Test Suite", ()
   });
 
   afterAll(async () => {
-    // Clean up test records
+    // Clean up test records atomically in a single transaction to minimize SQLite write-lock overhead
+    const ops = [];
     if (factoryAlphaId) {
-      await prisma.crmDeal.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.crmCustomer.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.maintenanceTicket.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.materialConsumption.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.employee.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.supplier.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.productionOrder.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.machine.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.stockMovement.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.inventoryItem.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.warehouse.deleteMany({ where: { factoryId: factoryAlphaId } });
-      await prisma.factoryProfile.deleteMany({ where: { id: factoryAlphaId } });
-      await prisma.user.deleteMany({ where: { id: factoryAlphaUserId } });
+      ops.push(
+        prisma.crmDeal.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.crmCustomer.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.maintenanceTicket.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.materialConsumption.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.employee.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.supplier.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.productionOrder.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.machine.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.stockMovement.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.inventoryItem.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.warehouse.deleteMany({ where: { factoryId: factoryAlphaId } }),
+        prisma.factoryProfile.deleteMany({ where: { id: factoryAlphaId } }),
+        prisma.user.deleteMany({ where: { id: factoryAlphaUserId } })
+      );
     }
 
     if (factoryBetaId) {
-      await prisma.factoryProfile.deleteMany({ where: { id: factoryBetaId } });
-      await prisma.user.deleteMany({ where: { id: factoryBetaUserId } });
+      ops.push(
+        prisma.factoryProfile.deleteMany({ where: { id: factoryBetaId } }),
+        prisma.user.deleteMany({ where: { id: factoryBetaUserId } })
+      );
     }
-  });
+
+    if (ops.length > 0) {
+      await prisma.$transaction(ops);
+    }
+  }, 30000);
 
   // Test 1: Direct Read Scoping
   it("Factory Beta cannot read Factory Alpha inventory items using tenant-scoped query", async () => {

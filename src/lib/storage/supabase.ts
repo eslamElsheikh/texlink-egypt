@@ -3,7 +3,8 @@
  * Strictly operates within the $0.00 budget:
  * - Public bucket: 'texlink-public-assets' (catalog photos, factory logos)
  * - Private bucket: 'factory-private-documents' (commercial register, tax cards)
- * - Falls back to local storage in offline dev/test environments.
+ * - Strictly separates private service-role access from public anon access.
+ * - Private operations fail closed if SUPABASE_SERVICE_ROLE_KEY is missing.
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -13,34 +14,115 @@ export const SUPABASE_BUCKETS = {
   PUBLIC_ASSETS: "texlink-public-assets",
 } as const;
 
-let supabaseInstance: SupabaseClient | null = null;
+let privateClientCache: { cacheKey: string; client: SupabaseClient } | null = null;
+let publicClientCache: { cacheKey: string; client: SupabaseClient } | null = null;
 
-export function isSupabaseStorageConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  );
-}
-
-export function getSupabaseClient(): SupabaseClient | null {
-  if (!isSupabaseStorageConfigured()) {
-    return null;
-  }
-
-  if (!supabaseInstance) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const key =
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    supabaseInstance = createClient(url, key, {
-      auth: { persistSession: false },
-    });
-  }
-
-  return supabaseInstance;
+/**
+ * Returns true strictly when server-side service-role credentials are present
+ * for private document operations. Never falls back to the public anon key.
+ */
+export function isSupabasePrivateStorageConfigured(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return Boolean(url && serviceKey);
 }
 
 /**
- * Uploads a file buffer to Supabase Storage Free Tier
+ * Returns true when public asset storage credentials (anon key or service role)
+ * and project URL are configured.
+ */
+export function isSupabasePublicStorageConfigured(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return Boolean(url && key);
+}
+
+/**
+ * Legacy helper retained for strict private-first compatibility.
+ * Requires service-role credentials; never accepts anonymous-only config.
+ */
+export function isSupabaseStorageConfigured(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  return isSupabasePrivateStorageConfigured(env);
+}
+
+/**
+ * Server-side privileged Supabase client strictly for private document operations.
+ * Returns null if SUPABASE_SERVICE_ROLE_KEY is missing (fail-closed).
+ */
+export function getSupabasePrivateClient(
+  env: NodeJS.ProcessEnv = process.env
+): SupabaseClient | null {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !serviceKey) {
+    return null;
+  }
+
+  const cacheKey = `${url}::${serviceKey}`;
+  if (!privateClientCache || privateClientCache.cacheKey !== cacheKey) {
+    privateClientCache = {
+      cacheKey,
+      client: createClient(url, serviceKey, {
+        auth: { persistSession: false },
+      }),
+    };
+  }
+
+  return privateClientCache.client;
+}
+
+/**
+ * Public Supabase client exclusively for public catalog/asset buckets.
+ * Uses NEXT_PUBLIC_SUPABASE_ANON_KEY when available.
+ */
+export function getSupabasePublicClient(
+  env: NodeJS.ProcessEnv = process.env
+): SupabaseClient | null {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) {
+    return null;
+  }
+
+  const cacheKey = `${url}::${key}`;
+  if (!publicClientCache || publicClientCache.cacheKey !== cacheKey) {
+    publicClientCache = {
+      cacheKey,
+      client: createClient(url, key, {
+        auth: { persistSession: false },
+      }),
+    };
+  }
+
+  return publicClientCache.client;
+}
+
+/**
+ * Safe alias for getSupabasePrivateClient() — never silently falls back to anon key.
+ */
+export function getSupabaseClient(
+  env: NodeJS.ProcessEnv = process.env
+): SupabaseClient | null {
+  return getSupabasePrivateClient(env);
+}
+
+/**
+ * Resets cached Supabase client instances (used in unit tests).
+ */
+export function resetSupabaseStorageClients(): void {
+  privateClientCache = null;
+  publicClientCache = null;
+}
+
+/**
+ * Uploads a file buffer to Supabase Storage Free Tier.
+ * Private buckets strictly require the server-side service-role client.
  */
 export async function uploadToSupabaseStorage(params: {
   bucket: string;
@@ -48,12 +130,18 @@ export async function uploadToSupabaseStorage(params: {
   buffer: Buffer;
   contentType: string;
 }): Promise<{ success: boolean; url?: string; error?: string }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { success: false, error: "Supabase Storage credentials not configured" };
-  }
-
   const { bucket, storageKey, buffer, contentType } = params;
+  const isPublicBucket = bucket === SUPABASE_BUCKETS.PUBLIC_ASSETS;
+
+  const client = isPublicBucket ? getSupabasePublicClient() : getSupabasePrivateClient();
+  if (!client) {
+    return {
+      success: false,
+      error: isPublicBucket
+        ? "Supabase public storage credentials not configured"
+        : "Supabase service-role credentials (SUPABASE_SERVICE_ROLE_KEY) required for private document storage",
+    };
+  }
 
   try {
     const { error: uploadError } = await client.storage
@@ -68,7 +156,7 @@ export async function uploadToSupabaseStorage(params: {
       return { success: false, error: uploadError.message };
     }
 
-    if (bucket === SUPABASE_BUCKETS.PUBLIC_ASSETS) {
+    if (isPublicBucket) {
       const { data } = client.storage.from(bucket).getPublicUrl(storageKey);
       return { success: true, url: data.publicUrl };
     }
@@ -83,14 +171,18 @@ export async function uploadToSupabaseStorage(params: {
 }
 
 /**
- * Downloads a file buffer from private Supabase Storage
+ * Downloads a file buffer from Supabase Storage.
+ * Private buckets strictly require the server-side service-role client and fail closed if unavailable.
  */
 export async function downloadFromSupabaseStorage(params: {
   bucket: string;
   storageKey: string;
 }): Promise<{ buffer: Buffer; contentType: string } | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
+  const isPublicBucket = params.bucket === SUPABASE_BUCKETS.PUBLIC_ASSETS;
+  const client = isPublicBucket ? getSupabasePublicClient() : getSupabasePrivateClient();
+  if (!client) {
+    return null;
+  }
 
   try {
     const { data, error } = await client.storage

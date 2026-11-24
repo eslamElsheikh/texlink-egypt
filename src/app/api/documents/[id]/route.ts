@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { readFile, stat } from "fs/promises";
+import { readFile } from "fs/promises";
 import path from "path";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { isValidStorageKeyParam, parsePrivateStorageKey } from "@/lib/storage/keys";
 import {
-  isSupabaseStorageConfigured,
+  isSupabasePrivateStorageConfigured,
   downloadFromSupabaseStorage,
   SUPABASE_BUCKETS,
 } from "@/lib/storage/supabase";
@@ -24,45 +25,43 @@ export async function GET(
 
     const { id } = await params;
 
-    // Prevent path traversal
-    const safeKey = path.basename(id).replace(/[^a-zA-Z0-9_.-]/g, "");
-    if (!safeKey || safeKey.includes("..")) {
+    // Strictly reject path traversal, directory separators, dot-files, and malformed keys
+    if (!isValidStorageKeyParam(id)) {
       return NextResponse.json({ error: "معرف مستند غير صالح" }, { status: 400 });
     }
+    const safeKey = id;
 
     // Authorization check
     const isAdmin = session.role === "ADMIN" || (session.role as string) === "PLATFORM_ADMIN";
 
     let authorized = isAdmin;
+    let resolvedStorageKey = safeKey;
+
+    const doc = await prisma.factoryDocument.findFirst({
+      where: {
+        OR: [
+          { storageKey: safeKey },
+          { fileUrl: `/api/documents/${safeKey}` },
+          { fileUrl: { endsWith: `/${safeKey}` } },
+          { id: safeKey },
+        ],
+      },
+      include: { factory: true },
+    });
+
+    if (doc?.storageKey) {
+      resolvedStorageKey = doc.storageKey;
+    }
 
     if (!authorized) {
-      // Look up document in database to verify tenant ownership
-      const doc = await prisma.factoryDocument.findFirst({
-        where: {
-          OR: [
-            { storageKey: safeKey },
-            { fileUrl: { contains: safeKey } },
-            { id: safeKey },
-          ],
-        },
-        include: { factory: true },
-      });
-
       if (doc) {
         // User must be the owner of the factory or assigned to the factory
         authorized = doc.factory.userId === session.id || session.factoryId === doc.factoryId;
       } else {
         // If not yet linked in DB (e.g. during registration wizard before profile save),
         // strictly verify that the storage key is explicitly scoped to the uploading user.
-        // Expected format: priv_<uploaderUserId>_<uuid>.<ext>
-        const match = safeKey.match(/^priv_([a-zA-Z0-9-]+)_([a-zA-Z0-9-]+)(\.[a-zA-Z0-9]+)?$/);
-        if (match) {
-          const uploaderUserId = match[1];
-          authorized = uploaderUserId === session.id;
-        } else {
-          // Unscoped, unknown, or unregistered keys without explicit user ownership are strictly rejected
-          authorized = false;
-        }
+        const parsed = parsePrivateStorageKey(safeKey);
+        authorized = Boolean(parsed && parsed.uploaderUserId === session.id);
       }
     }
 
@@ -76,11 +75,11 @@ export async function GET(
     let fileBuffer: Buffer | null = null;
     let contentType = "application/pdf";
 
-    // 1. Check Supabase Storage Free if configured
-    if (isSupabaseStorageConfigured()) {
+    // 1. Check Supabase Private Storage (strictly requires server-side service-role key)
+    if (isSupabasePrivateStorageConfigured()) {
       const remote = await downloadFromSupabaseStorage({
         bucket: SUPABASE_BUCKETS.PRIVATE_DOCUMENTS,
-        storageKey: safeKey,
+        storageKey: resolvedStorageKey,
       });
       if (remote) {
         fileBuffer = remote.buffer;
@@ -88,21 +87,21 @@ export async function GET(
       }
     }
 
-    // 2. Fall back to local filesystem storage strictly in development/testing
+    // 2. Fall back to local filesystem storage strictly in offline development/testing
     if (!fileBuffer) {
-      if (isSupabaseStorageConfigured()) {
+      if (isSupabasePrivateStorageConfigured()) {
         return NextResponse.json({ error: "المستند غير موجود في التخزين السحابي" }, { status: 404 });
       }
 
-      if (process.env.NODE_ENV === "production") {
+      if (process.env.NODE_ENV === "production" || Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim())) {
         return NextResponse.json(
-          { error: "وحدة التخزين السحابية غير مهيأة. يرجى تهيئة Supabase Storage في بيئة الإنتاج." },
+          { error: "وحدة التخزين السحابية الخاصة غير مهيأة (مفتاح الصلاحيات الخادم مطلوب). يرجى تهيئة SUPABASE_SERVICE_ROLE_KEY." },
           { status: 503 }
         );
       }
 
       const privateDir = path.join(process.cwd(), "storage", "private", "documents");
-      const filePath = path.join(privateDir, safeKey);
+      const filePath = path.join(privateDir, resolvedStorageKey);
       try {
         fileBuffer = await readFile(filePath);
         if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) {

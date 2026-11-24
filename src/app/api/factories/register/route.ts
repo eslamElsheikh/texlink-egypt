@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { getCurrentUser, createSessionToken, setSessionCookie } from "@/lib/auth/session";
 import { z } from "zod";
 import { normalizeGovernorate } from "@/config/locations";
+import { extractStorageKeyFromUrl, parsePrivateStorageKey } from "@/lib/storage/keys";
 const factoryRegisterSchema = z.object({
   // Subscription / Usage Mode
   usageMode: z.enum(["MANAGEMENT_ONLY", "FULL_ACCESS"]).default("FULL_ACCESS").optional(),
@@ -54,6 +55,27 @@ export async function POST(req: Request) {
 
     const data = parsed.data;
     const session = await getCurrentUser();
+
+    // Prevent cross-tenant document key hijacking during factory registration:
+    // if any submitted document URL points to a scoped private upload, it must belong to the current session user.
+    const submittedUrls = [
+      data.commercialRegisterUrl,
+      data.taxCardUrl,
+      data.industrialRegisterUrl,
+    ].filter(Boolean) as string[];
+
+    for (const docUrl of submittedUrls) {
+      const storageKey = extractStorageKeyFromUrl(docUrl);
+      if (storageKey && storageKey.startsWith("priv_")) {
+        const parsedKey = parsePrivateStorageKey(storageKey);
+        if (!session || !parsedKey || parsedKey.uploaderUserId !== session.id) {
+          return NextResponse.json(
+            { error: "غير مصرح لك بربط مستند خاص يخص مستخدماً آخر" },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     let userId: string;
 
@@ -158,18 +180,13 @@ export async function POST(req: Request) {
     });
 
     // Add documents if uploaded
-    const extractStorageKey = (url?: string | null) => {
-      if (!url) return null;
-      return url.split("/").pop() || null;
-    };
-
     const docs = [];
     if (data.commercialRegisterUrl) {
       docs.push({
         factoryId: factory.id,
         type: "COMMERCIAL_REGISTER",
         fileUrl: data.commercialRegisterUrl,
-        storageKey: extractStorageKey(data.commercialRegisterUrl),
+        storageKey: extractStorageKeyFromUrl(data.commercialRegisterUrl),
         fileName: data.commercialRegisterName || "السجل_التجاري.pdf",
         status: "PENDING",
       });
@@ -180,7 +197,7 @@ export async function POST(req: Request) {
         factoryId: factory.id,
         type: "TAX_CARD",
         fileUrl: data.taxCardUrl,
-        storageKey: extractStorageKey(data.taxCardUrl),
+        storageKey: extractStorageKeyFromUrl(data.taxCardUrl),
         fileName: data.taxCardName || "البطاقة_الضريبية.pdf",
         status: "PENDING",
       });
@@ -191,7 +208,7 @@ export async function POST(req: Request) {
         factoryId: factory.id,
         type: "INDUSTRIAL_REGISTER",
         fileUrl: data.industrialRegisterUrl,
-        storageKey: extractStorageKey(data.industrialRegisterUrl),
+        storageKey: extractStorageKeyFromUrl(data.industrialRegisterUrl),
         fileName: data.industrialRegisterName || "السجل_الصناعي.pdf",
         status: "PENDING",
       });
