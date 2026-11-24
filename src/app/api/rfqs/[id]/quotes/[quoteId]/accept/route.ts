@@ -154,82 +154,87 @@ export async function POST(
     });
 
     // 6. Notify factory owner
-    await prisma.notification.create({
-      data: {
-        userId: quote.factory.userId,
-        titleAr: "🎉 تم قبول عرض سعرك! تم إنشاء طلب رسمي",
-        bodyAr: `وافق المشتري على عرض سعرك لطلب "${rfq.titleAr}". تم إنشاء أمر التصنيع رقم #${order.orderNumber} بقيمة إجمالية ${order.totalAmount.toLocaleString()} ج.م. يمكنك الآن التواصل المباشر والبدء في تجهيز العينة/الإنتاج.`,
-        type: "QUOTE_ACCEPTED",
-        link: `/orders/${order.id}`,
-      },
-    });
+    if (quote.factory) {
+      await prisma.notification.create({
+        data: {
+          userId: quote.factory.userId,
+          titleAr: "🎉 تم قبول عرض سعرك! تم إنشاء طلب رسمي",
+          bodyAr: `وافق المشتري على عرض سعرك لطلب "${rfq.titleAr}". تم إنشاء أمر التصنيع رقم #${order.orderNumber} بقيمة إجمالية ${order.totalAmount.toLocaleString()} ج.م. يمكنك الآن التواصل المباشر والبدء في تجهيز العينة/الإنتاج.`,
+          type: "QUOTE_ACCEPTED",
+          link: `/orders/${order.id}`,
+        },
+      });
+    }
 
     // 7. Auto-link to Factory CRM Workspace
-    try {
-      let crmCustomer = await prisma.crmCustomer.findFirst({
-        where: {
-          factoryId: quote.factoryId,
-          OR: [
-            { buyerId: rfq.buyerId },
-            { phone: rfq.buyer.phone },
-          ],
-        },
-      });
+    if (quote.factoryId) {
+      const fid = quote.factoryId;
+      try {
+        let crmCustomer = await prisma.crmCustomer.findFirst({
+          where: {
+            factoryId: fid,
+            OR: [
+              ...(rfq.buyerId ? [{ buyerId: rfq.buyerId }] : []),
+              { phone: rfq.buyer.phone },
+            ],
+          },
+        });
 
-      if (!crmCustomer) {
-        crmCustomer = await prisma.crmCustomer.create({
+        if (!crmCustomer) {
+          crmCustomer = await prisma.crmCustomer.create({
+            data: {
+              factoryId: fid,
+              buyerId: rfq.buyerId || undefined,
+              name: rfq.buyer.name,
+              phone: rfq.buyer.phone,
+              email: rfq.buyer.email,
+              source: "MARKETPLACE",
+              status: "ACTIVE",
+              totalSpend: order.totalAmount,
+              ordersCount: 1,
+              notes: `عميل سوق B2B من طلب RFQ: ${rfq.titleAr}`,
+            },
+          });
+        } else {
+          await prisma.crmCustomer.update({
+            where: { id: crmCustomer.id },
+            data: {
+              buyerId: rfq.buyerId || undefined,
+              totalSpend: { increment: order.totalAmount },
+              ordersCount: { increment: 1 },
+              lastContactDate: new Date(),
+            },
+          });
+        }
+
+        // Create won deal in CRM pipeline
+        const crmDeal = await prisma.crmDeal.create({
           data: {
-            factoryId: quote.factoryId,
-            buyerId: rfq.buyerId,
-            name: rfq.buyer.name,
-            phone: rfq.buyer.phone,
-            email: rfq.buyer.email,
-            source: "MARKETPLACE",
-            status: "ACTIVE",
-            totalSpend: order.totalAmount,
-            ordersCount: 1,
-            notes: `عميل سوق B2B من طلب RFQ: ${rfq.titleAr}`,
+            factoryId: fid,
+            customerId: crmCustomer.id,
+            rfqId: rfq.id,
+            orderId: order.id,
+            title: `صفقة سوق B2B: ${rfq.titleAr}`,
+            stage: "WON",
+            amount: order.totalAmount,
+            notes: `تم اعتماد عرض السعر بنجاح برقم أمر تصنيع #${order.orderNumber}`,
           },
         });
-      } else {
-        await prisma.crmCustomer.update({
-          where: { id: crmCustomer.id },
+
+        // Log CRM Activity
+        await prisma.crmActivity.create({
           data: {
-            buyerId: rfq.buyerId,
-            totalSpend: { increment: order.totalAmount },
-            ordersCount: { increment: 1 },
-            lastContactDate: new Date(),
+            factoryId: fid,
+            customerId: crmCustomer.id,
+            dealId: crmDeal.id,
+            type: "MARKETPLACE_ORDER",
+            description: `اعتماد طلب شراء رسمي #${order.orderNumber} بقيمة ${order.totalAmount.toLocaleString()} ج.م من سوق سايسل مصر`,
+            performedBy: rfq.buyer.name,
           },
         });
+      } catch (crmErr) {
+        console.error("Auto CRM link error (non-blocking):", crmErr);
       }
-
-      // Create won deal in CRM pipeline
-      const crmDeal = await prisma.crmDeal.create({
-        data: {
-          factoryId: quote.factoryId,
-          customerId: crmCustomer.id,
-          rfqId: rfq.id,
-          orderId: order.id,
-          title: `صفقة سوق B2B: ${rfq.titleAr}`,
-          stage: "WON",
-          amount: order.totalAmount,
-          notes: `تم اعتماد عرض السعر بنجاح برقم أمر تصنيع #${order.orderNumber}`,
-        },
-      });
-
-      // Log CRM Activity
-      await prisma.crmActivity.create({
-        data: {
-          factoryId: quote.factoryId,
-          customerId: crmCustomer.id,
-          dealId: crmDeal.id,
-          type: "MARKETPLACE_ORDER",
-          description: `اعتماد طلب شراء رسمي #${order.orderNumber} بقيمة ${order.totalAmount.toLocaleString()} ج.م من سوق سايسل مصر`,
-          performedBy: rfq.buyer.name,
-        },
-      });
-    } catch (crmErr) {
-      console.error("Auto CRM link error (non-blocking):", crmErr);
     }
     return NextResponse.json({
       success: true,

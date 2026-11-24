@@ -36,7 +36,11 @@ export async function POST(
     }
 
     const isBuyer = session.id === order.buyerId;
-    const isFactory = session.id === order.factory.userId || (session.factoryId && session.factoryId === order.factoryId);
+    const isFactory = Boolean(
+      order.factory &&
+        (session.id === order.factory.userId ||
+          (session.factoryId && session.factoryId === order.factoryId))
+    );
     const isAdmin = session.role === "ADMIN";
 
     if (!isBuyer && !isFactory && !isAdmin) {
@@ -124,22 +128,24 @@ export async function POST(
     });
 
     // Notify the other party
-    const notifyUser = isFactory ? order.buyer : order.factory.user;
-    await NotificationService.notify({
-      userId: notifyUser.id,
-      recipientEmail: notifyUser.email,
-      recipientPhone: notifyUser.phone,
-      type: "ORDER_STATUS",
-      titleAr: `تحديث في أمر التصنيع #${order.orderNumber}`,
-      bodyAr: `تم تحديث مرحلة "${updatedMilestone.titleAr}" إلى: ${
-        isCompleted ? "مكتملة بنجاح" : "قيد التنفيذ والتشغيل"
-      }`,
-      link: `/orders/${order.id}`,
-      data: {
-        orderNumber: order.orderNumber,
-        stepTitle: updatedMilestone.titleAr,
-      },
-    });
+    const notifyUser = isFactory ? order.buyer : order.factory?.user;
+    if (notifyUser) {
+      await NotificationService.notify({
+        userId: notifyUser.id,
+        recipientEmail: notifyUser.email,
+        recipientPhone: notifyUser.phone,
+        type: "ORDER_STATUS",
+        titleAr: `تحديث في أمر التصنيع #${order.orderNumber}`,
+        bodyAr: `تم تحديث مرحلة "${updatedMilestone.titleAr}" إلى: ${
+          isCompleted ? "مكتملة بنجاح" : "قيد التنفيذ والتشغيل"
+        }`,
+        link: `/orders/${order.id}`,
+        data: {
+          orderNumber: order.orderNumber,
+          stepTitle: updatedMilestone.titleAr,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

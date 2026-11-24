@@ -68,7 +68,7 @@ export async function GET(
     }
 
     const isBuyer = session.id === order.buyerId;
-    const isFactory = session.id === order.factory.userId;
+    const isFactory = Boolean(order.factory && session.id === order.factory.userId);
     const isAdmin = session.role === "ADMIN";
 
     if (!isBuyer && !isFactory && !isAdmin) {

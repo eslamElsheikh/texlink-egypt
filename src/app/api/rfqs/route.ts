@@ -167,7 +167,7 @@ export async function POST(req: Request) {
     const matches = await matchFactoriesForRfq({
       id: newRfq.id,
       productType: newRfq.productType,
-      fabricDetails: newRfq.fabricDetails,
+      fabricDetails: newRfq.fabricDetails || "",
       totalQuantity: newRfq.totalQuantity,
       targetGovernorate: newRfq.targetGovernorate,
     });

@@ -62,13 +62,15 @@ export async function POST(
     }
 
     // Determine tiered price per piece
-    let unitPrice = product.basePrice;
+    let unitPrice: number = product.basePrice ?? 0;
     for (const tier of product.priceTiers) {
       if (
         quantity >= tier.minQuantity &&
         (tier.maxQuantity === null || quantity <= tier.maxQuantity)
       ) {
-        unitPrice = tier.pricePerPiece;
+        if (tier.pricePerPiece != null) {
+          unitPrice = tier.pricePerPiece;
+        }
         break;
       }
     }
@@ -149,19 +151,21 @@ export async function POST(
     });
 
     // Notify Factory
-    await NotificationService.notify({
-      userId: product.factory.userId,
-      recipientEmail: product.factory.user.email,
-      recipientPhone: product.factory.user.phone,
-      type: "ORDER_STATUS",
-      titleAr: `📦 طلب شراء جاهز جديد #${order.orderNumber}!`,
-      bodyAr: `تلقيت طلب شراء لمنتجك "${product.nameAr}" بكمية ${quantity} قطعة بقيمة ${totalAmount.toLocaleString()} ج.م. يرجى مراجعة وتجهيز الطلب للشحن.`,
-      link: `/orders/${order.id}`,
-      data: {
-        orderNumber: order.orderNumber,
-        stepTitle: "تجهيز وفرز البضاعة من المخزن",
-      },
-    });
+    if (product.factory?.user) {
+      await NotificationService.notify({
+        userId: product.factory.userId,
+        recipientEmail: product.factory.user.email,
+        recipientPhone: product.factory.user.phone,
+        type: "ORDER_STATUS",
+        titleAr: `📦 طلب شراء جاهز جديد #${order.orderNumber}!`,
+        bodyAr: `تلقيت طلب شراء لمنتجك "${product.nameAr}" بكمية ${quantity} قطعة بقيمة ${totalAmount.toLocaleString()} ج.م. يرجى مراجعة وتجهيز الطلب للشحن.`,
+        link: `/orders/${order.id}`,
+        data: {
+          orderNumber: order.orderNumber,
+          stepTitle: "تجهيز وفرز البضاعة من المخزن",
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

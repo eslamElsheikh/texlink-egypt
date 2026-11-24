@@ -70,27 +70,32 @@ export async function POST(
       },
     });
 
-    // Recalculate factory average rating and reviewCount
-    const allFactoryReviews = await prisma.review.findMany({
-      where: { factoryId: order.factoryId },
-      select: { rating: true },
-    });
+    let newRating: number | undefined;
 
-    const totalRatings = allFactoryReviews.reduce((acc, r) => acc + r.rating, 0);
-    const avgRating = totalRatings / (allFactoryReviews.length || 1);
+    // Recalculate factory average rating and reviewCount if linked to a factory
+    if (order.factoryId) {
+      const allFactoryReviews = await prisma.review.findMany({
+        where: { factoryId: order.factoryId },
+        select: { rating: true },
+      });
 
-    await prisma.factoryProfile.update({
-      where: { id: order.factoryId },
-      data: {
-        rating: Math.round(avgRating * 10) / 10,
-        reviewCount: allFactoryReviews.length,
-      },
-    });
+      const totalRatings = allFactoryReviews.reduce((acc, r) => acc + r.rating, 0);
+      const avgRating = totalRatings / (allFactoryReviews.length || 1);
+      newRating = Math.round(avgRating * 10) / 10;
+
+      await prisma.factoryProfile.update({
+        where: { id: order.factoryId },
+        data: {
+          rating: newRating,
+          reviewCount: allFactoryReviews.length,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
       review,
-      newRating: Math.round(avgRating * 10) / 10,
+      newRating,
     });
   } catch (error) {
     console.error("Create review error:", error);

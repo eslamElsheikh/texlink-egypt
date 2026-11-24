@@ -35,6 +35,22 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    // Zero-Warehouse Deadlock Prevention: auto-provision default warehouse if none exists
+    if (warehouses.length === 0) {
+      const defaultWarehouse = await prisma.warehouse.create({
+        data: {
+          factoryId,
+          name: "المستودع الرئيسي",
+          location: "مقر المصنع",
+          type: "RAW_MATERIALS",
+        },
+        include: {
+          _count: { select: { items: true } },
+        },
+      });
+      warehouses.push(defaultWarehouse);
+    }
+
     const totalValuation = items.reduce((s, i) => s + Number(i.totalValuation || Number(i.currentStock) * Number(i.unitCost)), 0);
     const lowStockItems = items.filter((i) => i.currentStock <= i.minimumStock);
 

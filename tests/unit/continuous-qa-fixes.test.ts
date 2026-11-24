@@ -294,8 +294,8 @@ describe("Cysle Egypt — Continuous QA Bug Fixes & Boundary Safeguards", () => 
       });
 
       for (const p of publicProducts) {
-        expect(p.factory.isDemo).toBe(false);
-        expect(p.factory.slug).not.toBe("cysle-demo-factory");
+        expect(p.factory?.isDemo).toBe(false);
+        expect(p.factory?.slug).not.toBe("cysle-demo-factory");
       }
     });
   });

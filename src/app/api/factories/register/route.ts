@@ -147,6 +147,16 @@ export async function POST(req: Request) {
       },
     });
 
+    // Zero-Warehouse Deadlock Prevention: provision default primary warehouse
+    await prisma.warehouse.create({
+      data: {
+        factoryId: factory.id,
+        name: "المستودع الرئيسي",
+        location: data.address || data.city || "مقر المصنع",
+        type: "RAW_MATERIALS",
+      },
+    });
+
     // Add documents if uploaded
     const docs = [];
     if (data.commercialRegisterUrl) {

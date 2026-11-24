@@ -111,7 +111,7 @@ export default async function HomePage() {
         titleAr: r.titleAr,
         totalQuantity: r.totalQuantity,
         productType: r.productType,
-        fabricDetails: r.fabricDetails,
+        fabricDetails: r.fabricDetails || "حسب المواصفات",
         targetBudgetPerPiece: r.targetBudgetPerPiece,
         targetGovernorate: r.targetGovernorate,
         deadlineDays: r.deadlineDays,

@@ -35,7 +35,11 @@ export async function GET(
     }
     // Strict Participant Authorization Check
     const isBuyer = session.id === conversation.buyerId;
-    const isFactory = session.id === conversation.factory.userId || (session.factoryId && session.factoryId === conversation.factory.id);
+    const isFactory = Boolean(
+      conversation.factory &&
+        (session.id === conversation.factory.userId ||
+          (session.factoryId && session.factoryId === conversation.factory.id))
+    );
     const isAdmin = session.role === "ADMIN";
 
     if (!isBuyer && !isFactory && !isAdmin) {
@@ -49,7 +53,7 @@ export async function GET(
 
     const partnerName =
       session.id === conversation.buyerId
-        ? conversation.factory.nameAr
+        ? (conversation.factory?.nameAr || "مورد مستقل")
         : conversation.buyer.buyerProfile?.companyName || conversation.buyer.name;
 
     return NextResponse.json({

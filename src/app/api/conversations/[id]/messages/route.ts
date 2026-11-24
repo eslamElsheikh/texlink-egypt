@@ -37,7 +37,11 @@ export async function POST(
 
     // Verify participant
     const isBuyer = session.id === conversation.buyerId;
-    const isFactory = session.id === conversation.factory.userId || (session.factoryId && session.factoryId === conversation.factory.id);
+    const isFactory = Boolean(
+      conversation.factory &&
+        (session.id === conversation.factory.userId ||
+          (session.factoryId && session.factoryId === conversation.factory.id))
+    );
     const isAdmin = session.role === "ADMIN";
 
     if (!isBuyer && !isFactory && !isAdmin) {
@@ -81,21 +85,23 @@ export async function POST(
     });
 
     // Notify the other party
-    const recipientUser = isBuyer ? conversation.factory.user : conversation.buyer;
+    const recipientUser = isBuyer ? conversation.factory?.user : conversation.buyer;
 
-    await NotificationService.notify({
-      userId: recipientUser.id,
-      recipientEmail: recipientUser.email,
-      recipientPhone: recipientUser.phone,
-      type: "NEW_MESSAGE",
-      titleAr: `رسالة جديدة من ${session.name}`,
-      bodyAr: sanitizeResult.cleanText.slice(0, 100),
-      link: `/messages?id=${conversationId}`,
-      data: {
-        orderNumber: conversation.order?.orderNumber || "",
-        preview: sanitizeResult.cleanText.slice(0, 80),
-      },
-    });
+    if (recipientUser) {
+      await NotificationService.notify({
+        userId: recipientUser.id,
+        recipientEmail: recipientUser.email,
+        recipientPhone: recipientUser.phone,
+        type: "NEW_MESSAGE",
+        titleAr: `رسالة جديدة من ${session.name}`,
+        bodyAr: sanitizeResult.cleanText.slice(0, 100),
+        link: `/messages?id=${conversationId}`,
+        data: {
+          orderNumber: conversation.order?.orderNumber || "",
+          preview: sanitizeResult.cleanText.slice(0, 80),
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

@@ -25,7 +25,7 @@ export async function GET() {
         id: o.id,
         orderNumber: o.orderNumber,
         buyerName: o.buyer.buyerProfile?.companyName || o.buyer.name,
-        factoryName: o.factory.nameAr,
+        factoryName: o.factory?.nameAr || "مورد مستقل",
         productName: o.rfq?.titleAr || "طلب توريد",
         quantity: o.quantity,
         totalAmount: o.totalAmount,

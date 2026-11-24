@@ -38,7 +38,7 @@ export async function GET() {
         rfqTitle: c.rfq?.titleAr,
         partnerName:
           session.id === c.buyerId
-            ? c.factory.nameAr
+            ? (c.factory?.nameAr || "مورد مستقل")
             : c.buyer.buyerProfile?.companyName || c.buyer.name,
         lastMessage: c.messages[0]?.content || "محادثة جديدة",
         lastMessageAt: c.lastMessageAt,
