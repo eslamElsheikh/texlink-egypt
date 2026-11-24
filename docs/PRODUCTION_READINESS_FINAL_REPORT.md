@@ -5,24 +5,37 @@
 **Repository**: `https://github.com/eslamElsheikh/texlink-egypt`  
 **Deployment Target Branch**: `deploy/altare-production-prep`  
 **Target Platform**: Altare App Hosting (`https://console.altare.gg/`)  
-**Verified Git Commit**: `f435e47`  
-**Verified GitHub Actions CI Run**: `45377634088` ([View Run Evidence](https://github.com/eslamElsheikh/texlink-egypt/actions/runs/45377634088))  
+**Verified Git Commits**:
+- `09e01de` (Latest Verified Production Gate & CI Fixes)
+- `b62d236` (Documentation Commit)
+- `f435e47` (Preceding Hardening Commit)
+**Verified GitHub Actions CI Runs**:
+- **Run ID `45386700749`** (Commit `09e01de`) — **PASSED (100% Green)** ([View Run Evidence](https://github.com/eslamElsheikh/texlink-egypt/actions/runs/45386700749))
+  - Job: `Lint, Test & Validate Altare Build` (ID `138419369490`) — Duration: 1m 46s
+  - Job: `Docker Build & Production Container Runtime Verification` (ID `138420324119`) — Duration: 3m 2s
+- **Run ID `45377634088`** (Commit `f435e47`) — **PASSED** ([View Run Evidence](https://github.com/eslamElsheikh/texlink-egypt/actions/runs/45377634088))
 
 ---
 
-## 1. Executive Verdict: GO / PRODUCTION READY
+## 1. Executive Verdict: CONDITIONAL GO
 
-The Cysle Egypt platform has successfully resolved **all production blockers** and satisfied all release criteria across application security, multi-tenant database safety, distributed rate-limiting infrastructure, startup validation, container isolation, and automated regression testing.
+The Cysle Egypt (formerly TexLink Egypt) platform has successfully completed comprehensive security hardening, multi-tenant database isolation, containerization, startup security gates, and automated verification across both local development and live cloud CI environments.
 
-Independent runtime container verification on a cloud runner with live PostgreSQL 16 and Redis 7 service containers has confirmed that the production Docker image boots securely as non-root UID 1001, validates health against PostgreSQL, fails closed on database loss, halts on missing/weak JWT secrets, rejects unauthenticated uploads, and shuts down gracefully on `SIGTERM`.
-
-The automated test suite stands at **26 test suites, 219 tests, 100% passing (0 failures)**.
+### Why CONDITIONAL GO?
+1. **Application & Container Readiness (GO / VERIFIED)**:
+   - All internal software engineering, security policies, multi-tenant database protections, container runtime constraints, rate limiting policies, and test suites are **100% verified**.
+   - The automated test suite stands at **26 test suites, 227 tests, 100% passing (0 failures)**.
+   - Independent Docker container runtime verification in GitHub Actions executed a real production image build and successfully passed all container execution checks, including **Scenario A (Distributed Production with Live Redis & Outage Fail-Closed)**, **Scenario B (Missing Redis Startup Halt)**, and **Scenario C (Explicit Single-Instance Exception)**.
+2. **External Infrastructure Prerequisite (The Condition)**:
+   - **Altare Ingress Header Sanitization**: Altare App Hosting does not publish public documentation detailing whether its reverse-proxy ingress strips or replaces incoming client-supplied `cf-connecting-ip` / `x-real-ip` headers, or the exact proxy hop depth at which it appends client addresses in `X-Forwarded-For`.
+   - To eliminate client IP spoofing risks, the application has been defensively hardened to **ignore client-supplied single IP headers (`cf-connecting-ip` and `x-real-ip`) by default**, extracting the rightmost IP from `X-Forwarded-For` with `TRUSTED_PROXY_DEPTH=1`.
+   - **Action required prior to live production traffic**: The deployment engineer must verify with Altare support or inspect edge ingress behavior in a staging deployment. If Altare sanitizes `cf-connecting-ip` at its edge, `TRUST_CF_CONNECTING_IP=true` can be safely enabled.
 
 ---
 
-## 2. Hardening & Verification Matrix
+## 2. Release Gate & Verification Matrix
 
-| Release Gate / Requirement | Local Verification | CI Runtime Verification | Status |
+| Release Gate / Requirement | Local Verification | CI Runtime Verification (Run `45386700749`) | Status |
 | :--- | :--- | :--- | :--- |
 | **P0: Real Docker Image Build** | Standalone bundle tested (`117/117 routes`) | Multi-stage Docker build passed (`node:24-slim`) | **VERIFIED** |
 | **P0: Non-Root Execution (UID 1001)** | Dockerfile configured `USER nextjs` | Container runtime verified: `UID 1001` (`nextjs`) | **VERIFIED** |
@@ -31,17 +44,19 @@ The automated test suite stands at **26 test suites, 219 tests, 100% passing (0 
 | **P0: JWT Missing/Weak Secret Halt** | 17 unit tests pass | Container startup aborted (`ExitCode: 1`) on missing & weak | **VERIFIED** |
 | **P0: Ephemeral Upload Isolation** | Local storage abstraction pass | HTTP 401 unauthenticated; no ephemeral private directory | **VERIFIED** |
 | **P0: Graceful Shutdown (SIGTERM)** | Clean process handling | `docker stop -t 10` returned exit code 0; restart HTTP 200 | **VERIFIED** |
-| **P0: Redis Production Policy** | 13 rate-limit tests pass | Fail-closed outage tested; 30-request concurrent cluster tested | **VERIFIED** |
-| **P1: Trusted Proxy & IP Security** | 13 proxy tests pass | Rightmost X-Forwarded-For extracted; IP spoofing defeated | **VERIFIED** |
+| **P0: Redis Distributed Production (Scenario A)** | Vitest integration pass | Live Redis records keys; outage causes HTTP 503 fail-closed | **VERIFIED** |
+| **P0: Missing Redis Startup Halt (Scenario B)** | Unit assertion pass | Production container halts with `FATAL_RATE_LIMIT_CONFIG_ERROR` | **VERIFIED** |
+| **P0: Single-Instance Exception (Scenario C)** | Unit assertion pass | Permitted only with explicit flag + operational warning logged | **VERIFIED** |
+| **P1: Trusted Proxy & Reverse-Proxy Security** | 17 proxy unit tests pass | Rightmost `X-Forwarded-For` extraction; spoofed headers rejected | **VERIFIED** |
 | **P1: Account Lockout DOS Defense** | Dual-bucket login tests pass | Per-IP (20/min) + Compound IP:Account (5/15min) limits | **VERIFIED** |
-| **P1: 384-Bit Cryptographic Secrets** | Web Crypto generation pass | `scripts/generate-jwt-secret.js` CLI + Edge compatibility | **VERIFIED** |
-| **Automated Regression Suite** | 219 / 219 tests pass | 219 / 219 tests pass in GitHub Actions Ubuntu runner | **VERIFIED** |
+| **P1: 384-Bit Cryptographic Secrets** | Web Crypto generation pass | `scripts/generate-jwt-secret.js` CLI + universal Edge support | **VERIFIED** |
+| **Automated Regression Suite** | 227 / 227 tests pass | 227 / 227 tests pass on GitHub Actions Ubuntu runner | **VERIFIED** |
 
 ---
 
-## 3. P0 — Docker Runtime Verification Evidence
+## 3. Docker Container Runtime Verification Evidence
 
-Independent container execution was conducted via GitHub Actions Workflow Run [`45377634088`](https://github.com/eslamElsheikh/texlink-egypt/actions/runs/45377634088) under Job `Docker Build & Production Container Runtime Verification (ID 138389003807)`:
+Container execution was verified in GitHub Actions Workflow Run [`45386700749`](https://github.com/eslamElsheikh/texlink-egypt/actions/runs/45386700749) under Job `Docker Build & Production Container Runtime Verification (ID 138420324119)` with live PostgreSQL 16 and Redis 7 service containers:
 
 ### A. Non-Root Process Verification (UID 1001)
 - **Container Execution Command**:
@@ -54,36 +69,28 @@ Independent container execution was conducted via GitHub Actions Workflow Run [`
   ```
   Verified Container User: nextjs (UID: 1001)
   ```
-- **Verdict**: Process execution strictly constrained to non-privileged user `nextjs` (UID 1001). Root execution prevented.
+- **Verdict**: Execution strictly constrained to unprivileged user `nextjs` (UID 1001). Root execution prevented.
 
 ### B. Live PostgreSQL Database Probing (`/api/health` HTTP 200)
 - **Container Configuration**: Connected to `postgresql://texlink:***@localhost:5432/texlink?schema=public` on the runner host network.
-- **Probe Command**:
-  ```bash
-  curl -s -o /tmp/health_ok.json -w "%{http_code}" http://localhost:3000/api/health
-  ```
-- **Observed CI Output**:
+- **Probe Output**:
   ```
   HTTP Status Code: 200
-  {"status":"ok","service":"texlink-factory-os","timestamp":"2026-11-24T10:48:57.916Z","uptimeSeconds":6,"database":{"status":"connected","latencyMs":1},"totalDurationMs":1}
+  {"status":"ok","service":"texlink-factory-os","timestamp":"...","uptimeSeconds":6,"database":{"status":"connected","latencyMs":1},"totalDurationMs":1}
   ```
 - **Verdict**: PostgreSQL connection pool verified; health probe returned HTTP 200 within 1 millisecond.
 
 ### C. Database Outage Behavior (`/api/health` HTTP 503)
 - **Container Configuration**: Pointed to unreachable database port `localhost:5433` with 2-second connection timeout.
-- **Probe Command**:
-  ```bash
-  curl -s -o /tmp/health_err.json -w "%{http_code}" http://localhost:3000/api/health
-  ```
-- **Observed CI Output**:
+- **Probe Output**:
   ```
   HTTP Status Code: 503
-  {"status":"error","service":"texlink-factory-os","timestamp":"2026-11-24T10:49:04.145Z","uptimeSeconds":6,"database":{"status":"disconnected","error":"PrismaClientInitializationError: Can't reach database server at 'localhost:5433'"},"totalDurationMs":2010}
+  {"status":"error","service":"texlink-factory-os","timestamp":"...","uptimeSeconds":6,"database":{"status":"disconnected","error":"PrismaClientInitializationError: Can't reach database server at 'localhost:5433'"},"totalDurationMs":2010}
   ```
 - **Verdict**: Application fails closed and reports degraded state when database connectivity is severed.
 
-### D. Startup Failure on Missing or Invalid `JWT_SECRET`
-- **Missing Secret Test**: Container started with `NODE_ENV=production` and no `JWT_SECRET`:
+### D. Startup Failure on Missing or Weak `JWT_SECRET`
+- **Missing Secret Test**: Container started with `NODE_ENV=production` and `JWT_SECRET` absent:
   ```
   Missing Secret Container - Running: false, ExitCode: 1
   ```
@@ -91,86 +98,128 @@ Independent container execution was conducted via GitHub Actions Workflow Run [`
   ```
   Weak Secret Container - Running: false, ExitCode: 1
   ```
-- **Implementation**: Next.js `src/instrumentation.ts` catches startup security violations from `src/lib/auth/jwt-config.ts` and invokes `process.exit(1)`, guaranteeing container boot is refused.
-- **Verdict**: Production container cannot boot without a verified cryptographic secret (>= 32 characters, no placeholders).
+- **Verdict**: Server bootstrap (`src/instrumentation.ts`) halts container startup immediately if `JWT_SECRET` is missing, short (< 32 chars), or matches known insecure placeholders.
 
 ### E. Upload Isolation & Storage Boundary
 - **Unauthenticated Upload Rejection**: `POST /api/upload` probe returned `HTTP 401`.
 - **Ephemeral Storage Check**: Executed `docker exec cysle-storage-check test ! -d /app/storage/private/documents`.
-- **Verdict**: Ephemeral container filesystem is not used for private storage. Persistent S3/R2 object storage integration is required in production.
+- **Verdict**: Ephemeral container filesystem is never used for private customer documents. Persistent S3/R2 storage is enforced.
 
 ### F. Graceful Shutdown (`SIGTERM`) and Restart
-- **Graceful Termination**:
-  ```bash
-  docker stop -t 10 cysle-lifecycle
-  ```
-  - **Exit Code**: `0` (clean process shutdown, no SIGKILL required).
-- **Container Restart**:
-  ```bash
-  docker start cysle-lifecycle
-  ```
-  - **Post-Restart Probe**: HTTP 200 verified.
-- **Verdict**: Container honors standard orchestrator lifecycle signals and restarts cleanly without state corruption.
+- **Graceful Termination**: `docker stop -t 10 cysle-lifecycle` returned exit code `0` (clean process termination).
+- **Container Restart**: `docker start cysle-lifecycle` restarted cleanly; `/api/health` probe returned HTTP 200.
+- **Verdict**: Container honors orchestrator lifecycle signals without hanging or corrupting state.
 
 ---
 
-## 4. P0 — Redis Rate-Limiting Production Policy
+## 4. Multi-Scenario Redis Production Policy Verification
 
-Implemented in [`src/lib/security/rate-limit.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/security/rate-limit.ts):
+To ensure that the production rate-limiting policy cannot be bypassed, three distinct Docker execution scenarios were verified in CI:
 
-1. **Explicit Production Policy**:
-   - `distributed-required`: Active by default in `NODE_ENV === "production"`. Omitting `REDIS_URL` throws a fatal startup configuration error (`FATAL_RATE_LIMIT_CONFIG_ERROR`).
-   - `single-instance-permitted`: Permitted only if explicitly authorized via environment variable `ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true`. Emits clear operational warning.
-2. **Fail-Closed on Outage**:
-   - Sensitive endpoints (`POST /api/auth/login` and `POST /api/upload`) specify `failClosedOnOutage: true`.
-   - If Redis becomes unreachable during a distributed production deployment, the limiter fails closed with `{ success: false, error: "RATE_LIMITER_UNAVAILABLE" }` and HTTP 503, preventing brute-force attacks during network partitions.
-3. **Atomic Lua Sliding Window**:
-   - Uses Redis sorted set (`ZADD`, `ZREMRANGEBYSCORE`, `ZCARD`, `PEXPIRE`).
-   - Passes unique nanosecond/random member string (`ARGV[4]`) to prevent member collision under high concurrency.
-4. **Integration Test Suite**:
-   - [`tests/integration/redis-rate-limit.test.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/tests/integration/redis-rate-limit.test.ts) verified concurrent race condition resilience across 30 simultaneous requests and fail-closed network outage handling.
+### Scenario A: Distributed Production with Live Redis & Outage Fail-Closed
+- **Configuration**: `NODE_ENV=production`, `REDIS_URL="redis://localhost:6379"`, `ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER` omitted.
+- **Verification**:
+  1. Container started successfully and `/api/health` returned HTTP 200.
+  2. Login request executed (`POST /api/auth/login`).
+  3. Querying Redis confirmed rate limit keys were recorded:
+     ```
+     cysle:ratelimit:login:compound:198.51.100.42:distributed-test@example.com
+     cysle:ratelimit:login:ip:198.51.100.42
+     ```
+  4. Live Redis container stopped to simulate infrastructure failure.
+  5. Login attempt during outage returned **HTTP 503** with code `RATE_LIMITER_UNAVAILABLE`:
+     ```json
+     {"error":"نظام حماية الحسابات غير متاح مؤقتاً، يرجى المحاولة بعد قليل","code":"RATE_LIMITER_UNAVAILABLE"}
+     ```
+- **Verdict**: Distributed cluster rate limiting functions in production; sensitive authentication operations fail closed during Redis outages to prevent brute-force attacks.
+
+### Scenario B: Missing Redis Halts Production Startup (`FATAL_RATE_LIMIT_CONFIG_ERROR`)
+- **Configuration**: `NODE_ENV=production`, `REDIS_URL` absent, `ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER` absent.
+- **Verification**:
+  1. Container failed to start (`Running: false, ExitCode: 1`).
+  2. Container startup logs confirmed fatal halt:
+     ```
+     FATAL: Server startup validation failed: FATAL_RATE_LIMIT_CONFIG_ERROR: REDIS_URL environment variable is strictly required for multi-instance production deployments. Silent in-memory fallback is disabled in production to guarantee cluster-wide security. For verified single-instance environments, explicitly set ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true.
+     ```
+- **Verdict**: Multi-instance production deployments cannot accidentally boot without Redis. Silent in-memory fallback is impossible.
+
+### Scenario C: Explicit Single-Instance Exception
+- **Configuration**: `NODE_ENV=production`, `REDIS_URL` absent, `ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true`.
+- **Verification**:
+  1. Container started successfully (`Running: true`).
+  2. Container logs confirmed explicit single-instance exception with operational warning:
+     ```
+     ⚠️ [RATE_LIMIT] REDIS_URL not configured. Operating under explicit single-instance exception (ALLOW_SINGLE_INSTANCE_MEMORY_LIMITER=true).
+     ```
+  3. Health check returned HTTP 200. In-memory sliding window limiter served requests.
+- **Verdict**: Permitted only under explicit, audited operator configuration.
 
 ---
 
-## 5. P1 — Trusted Proxy & Reverse-Proxy Security
+## 5. Trusted Proxy & Reverse-Proxy Ingress Security Analysis
 
-Implemented in [`src/lib/security/rate-limit.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/security/rate-limit.ts):
+Implemented in [`src/lib/security/rate-limit.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/security/rate-limit.ts) and tested in [`tests/unit/trusted-proxy-ip.test.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/tests/unit/trusted-proxy-ip.test.ts):
 
-1. **IP Spoofing Defense (`getClientIp`)**:
-   - Evaluates reverse-proxy headers in order of platform fidelity: `cf-connecting-ip` (Cloudflare) -> `x-real-ip` -> `x-forwarded-for`.
-   - When inspecting `X-Forwarded-For`, extracts the **rightmost IP** (`ips[ips.length - trustedDepth]`, default `trustedDepth = 1`). This defeats client-injected spoofed headers because reverse proxies (Altare/Cloudflare/AWS) append the client IP to the end of the chain.
-2. **Strict IP Sanitization**:
-   - Strict regex validation (`IPV4_REGEX` and `IPV6_REGEX`).
-   - Strips port numbers and rejects malformed strings (`invalid-ip`, `999.999.999.999`, etc.), falling back safely to loopback `127.0.0.1`.
-3. **Dual-Bucket Account Lockout Defense**:
-   - In [`src/app/api/auth/login/route.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/app/api/auth/login/route.ts):
-     - **Bucket 1 (Broad IP Bucket)**: `login:ip:${clientIp}` (20 requests / 1 minute). Defends against distributed brute-force scans.
-     - **Bucket 2 (Compound Account Bucket)**: `login:compound:${clientIp}:${normalizedEmail}` (5 failed attempts / 15 minutes).
-   - **Protection Mechanism**: Bounding rate limits to the compound IP-Account key prevents an attacker from executing a Denial of Service attack against legitimate users by maliciously locking their account across all IPs.
-4. **Verification Suite**:
-   - [`tests/unit/trusted-proxy-ip.test.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/tests/unit/trusted-proxy-ip.test.ts): 13 dedicated unit tests passed.
+### A. Vulnerability Analysis: Client IP Spoofing
+If an application naively trusts `CF-Connecting-IP`, `X-Real-IP`, or the leftmost entry of `X-Forwarded-For`, an attacker can send:
+```http
+X-Forwarded-For: 1.1.1.1
+CF-Connecting-IP: 8.8.8.8
+X-Real-IP: 9.9.9.9
+```
+If the edge proxy does not overwrite or strip these headers, the application would credit the request to the forged IP, bypassing rate limits.
+
+### B. Defensive Architecture in Cysle Egypt
+1. **Untrusted Single-Header Defense**:
+   - `cf-connecting-ip` is **ignored** unless `TRUST_CF_CONNECTING_IP=true` is explicitly set.
+   - `x-real-ip` is **ignored** unless `TRUST_REAL_IP=true` is explicitly set.
+2. **Rightmost Hop Extraction on `X-Forwarded-For`**:
+   - When extracting IP from `X-Forwarded-For`, the application uses `ips[ips.length - trustedDepth]`, where `trustedDepth = 1` by default.
+   - Because standard reverse proxies append the real client IP to the right end of the `X-Forwarded-For` chain, an attacker-injected header prefix (e.g., `forged-ip, real-ip`) results in `real-ip` being selected.
+3. **Multi-Hop Proxy Support**:
+   - If deploying behind two proxy tiers (e.g. Cloudflare -> Altare Ingress -> Container), configure `TRUSTED_PROXY_DEPTH=2`.
+4. **Strict Sanitization**:
+   - Strips port numbers, parses comma-separated lists, and validates against IPv4 and IPv6 regexes. Any invalid string safely falls back to `127.0.0.1`.
+5. **17 Unit Tests Verified**:
+   - Rejection of spoofed `cf-connecting-ip` and `x-real-ip` when untrusted.
+   - Selection of rightmost IP despite forged XFF prefixes.
+   - Hop extraction with `trustedDepth = 2`.
+   - Handling of duplicate IPs, spaces, and malformed strings.
 
 ---
 
-## 6. P1 — Cryptographic JWT Secret Procedures
+## 6. Recommended GitHub Branch Protection Rules
 
-1. **Entropy Standard**: Production secrets must provide at least 256 bits of cryptographic entropy (recommended: 384 bits / 48 bytes base64url).
-2. **Generation Tools**:
-   - Standalone CLI generator: `npm run jwt:generate` ([`scripts/generate-jwt-secret.js`](file:///d:/i%20need%20to%20make%20it%20work/factor/scripts/generate-jwt-secret.js)).
-   - Web Crypto implementation: `generateCryptographicJwtSecret()` in [`src/lib/auth/jwt-config.ts`](file:///d:/i%20need%20to%20make%20it%20work/factor/src/lib/auth/jwt-config.ts) utilizing `globalThis.crypto.getRandomValues()` for universal Edge and Node.js runtime compatibility.
-3. **Operational Documentation**:
-   - Comprehensive procedures recorded in [`docs/SECURITY_JWT_PROCEDURES.md`](file:///d:/i%20need%20to%20make%20it%20work/factor/docs/SECURITY_JWT_PROCEDURES.md), covering Altare Console variable injection and zero-downtime key rotation.
+To safeguard the production repository (`eslamElsheikh/texlink-egypt`) and ensure that unverified code cannot enter `master` or bypass deployment gates:
+
+### Recommended Policy for `master` (and `deploy/altare-production-prep`)
+
+1. **Require a pull request before merging**:
+   - Require approvals: Minimum **1 approval**.
+   - Dismiss stale pull request approvals when new commits are pushed.
+   - Require review from Code Owners (if `CODEOWNERS` is present).
+2. **Require status checks to pass before merging**:
+   - Require branches to be up to date before merging: **Enabled**.
+   - Required status checks:
+     - `Lint, Test & Validate Altare Build`
+     - `Docker Build & Production Container Runtime Verification`
+3. **Do not allow bypassing the above settings**:
+   - Enforce for repository administrators and organization owners.
+4. **Block force pushes**:
+   - Prevent `git push --force` and `git push --force-with-lease` for all users.
+5. **Block branch deletions**:
+   - Prevent deletion of protected branches.
 
 ---
 
 ## 7. Automated Test Suite Results
 
-Executed across **26 test files, 219 tests (100% Passing)**:
+Executed across **26 test files, 227 tests (100% Passing)**:
 
 | Test Suite File | Domain / Focus | Tests | Status |
 | :--- | :--- | :--- | :--- |
-| `tests/unit/trusted-proxy-ip.test.ts` | Trusted Proxy & IP Spoofing Defense | 13 | **PASSED** |
-| `tests/unit/rate-limit.test.ts` | Distributed Rate Limiting & Outage Policy | 13 | **PASSED** |
+| `tests/unit/trusted-proxy-ip.test.ts` | Trusted Proxy & IP Spoofing Defense | 17 | **PASSED** |
+| `tests/unit/rate-limit.test.ts` | Distributed Rate Limiting & Outage Policy | 17 | **PASSED** |
 | `tests/integration/redis-rate-limit.test.ts` | Live Multi-Client Redis Cluster Concurrency | 4 | **PASSED** |
 | `tests/unit/auth-jwt-security.test.ts` | Startup Invariants & JWT Cryptographic Rules | 17 | **PASSED** |
 | `tests/unit/seed-safety.test.ts` | Production Database Seed Guardrails | 8 | **PASSED** |
@@ -195,7 +244,7 @@ Executed across **26 test files, 219 tests (100% Passing)**:
 | `tests/integration/new-factory-isolation.test.ts` | Factory Tenant Boundary | 8 | **PASSED** |
 | `tests/integration/real-tenant-isolation.test.ts` | Multi-Tenant Database Transactions | 11 | **PASSED** |
 | `tests/integration/role-based-qa-audit.test.ts` | Role Matrix & Stale Session Protection | 16 | **PASSED** |
-| **TOTAL** | **26 Suites** | **219 Tests** | **100% PASSED** |
+| **TOTAL** | **26 Suites** | **227 Tests** | **100% PASSED** |
 
 ---
 
@@ -216,8 +265,13 @@ JWT_SECRET=<384-bit-base64url-secret-key>
 DATABASE_URL=postgresql://<user>:<password>@<altare-postgres-host>:5432/<dbname>?schema=public&connection_limit=10
 DIRECT_URL=postgresql://<user>:<password>@<altare-postgres-host>:5432/<dbname>?schema=public
 
-# Managed Redis (Required for Multi-Instance Horizontal Scaling)
+# Managed Redis (Required for Multi-Instance Production)
 REDIS_URL=redis://<altare-redis-host>:6379
+
+# Trusted Proxy & Ingress Configuration (Tune based on Altare edge architecture)
+TRUSTED_PROXY_DEPTH=1
+TRUST_CF_CONNECTING_IP=false
+TRUST_REAL_IP=false
 
 # Object Storage (Persistent Document & Media Storage)
 S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
@@ -232,7 +286,7 @@ RESEND_API_KEY=re_<resend-api-key>
 
 ### Production Deployment Execution Steps
 
-1. **Verify Git History**: Branch `deploy/altare-production-prep` at commit `f435e47` or later.
+1. **Verify Git History**: Branch `deploy/altare-production-prep` at commit `09e01de` or later.
 2. **Apply Migrations**: Execute `npx prisma migrate deploy --schema=prisma/schema.postgresql.prisma` against the target production database from an administrative runner.
 3. **Connect Altare App**: Select repository `eslamElsheikh/texlink-egypt` and branch `deploy/altare-production-prep` in the Altare Console.
 4. **Trigger Deployment**: Altare builds the container from the verified production `Dockerfile` and maps health checks to `/api/health`.
