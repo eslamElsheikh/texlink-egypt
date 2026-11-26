@@ -12,11 +12,126 @@ interface MigrationStats {
   count: number;
 }
 
+export function redactDatabaseUrl(rawUrl: string): string {
+  if (!rawUrl) return rawUrl;
+  let shouldFallbackRegex = false;
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.username || parsed.password) {
+      parsed.username = parsed.username ? "***" : "";
+      parsed.password = parsed.password ? "***" : "";
+      return parsed.toString();
+    }
+    // WHATWG URL treats unescaped `#` or `?` in userinfo as hash/search rather than throwing.
+    if (
+      parsed.hash.includes("@") ||
+      (parsed.search.includes("@") && !parsed.pathname.includes("@"))
+    ) {
+      shouldFallbackRegex = true;
+    } else {
+      return rawUrl;
+    }
+  } catch {
+    shouldFallbackRegex = true;
+  }
+
+  if (!shouldFallbackRegex) return rawUrl;
+
+  return rawUrl.replace(
+    /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)([^\s]+)@([^\s@]+)$/g,
+    (_match, scheme: string, userInfo: string, targetHost: string) =>
+      `${scheme}${userInfo.includes(":") ? "***:***" : "***"}@${targetHost}`
+  );
+}
+
+function redactInlineUrls(text: string): string {
+  return text.replace(
+    /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)([^\s"'`<>@]+(?:@[^\s"'`<>@]+)*)@([^\s"'`<>@]+)/g,
+    (_match, scheme: string, userInfo: string, targetHost: string) =>
+      `${scheme}${userInfo.includes(":") ? "***:***" : "***"}@${targetHost}`
+  );
+}
+
+function extractRawCredentials(rawUrl?: string): { password?: string } {
+  if (!rawUrl) return {};
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.password) {
+      return { password: decodeURIComponent(parsed.password) };
+    }
+  } catch {
+    const m = rawUrl.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s/]+:([^\s]+)@[^\s@]+$/);
+    if (m?.[1]) return { password: m[1] };
+  }
+  return {};
+}
+
+function formatErrorWithCauses(
+  error: unknown,
+  visited: Set<object> = new Set(),
+  depth: number = 0
+): string {
+  if (depth > 5) return "[truncated error chain]";
+  if (error === null || error === undefined) return String(error);
+  if (typeof error !== "object") return String(error);
+  if (visited.has(error)) return "[circular error reference]";
+  visited.add(error);
+
+  const errObj = error as {
+    message?: unknown;
+    cause?: unknown;
+    errors?: unknown[];
+    detail?: unknown;
+  };
+  const parts: string[] = [];
+  if (typeof errObj.message === "string" && errObj.message.length > 0) {
+    parts.push(errObj.message);
+  } else if (error instanceof Error) {
+    parts.push(error.name || "Error");
+  } else {
+    try {
+      parts.push(JSON.stringify(error));
+    } catch {
+      parts.push(String(error));
+    }
+  }
+
+  if (typeof errObj.detail === "string" && errObj.detail.length > 0) {
+    parts.push(`detail: ${errObj.detail}`);
+  }
+  if (Array.isArray(errObj.errors) && errObj.errors.length > 0) {
+    const nested = errObj.errors
+      .slice(0, 5)
+      .map((item) => formatErrorWithCauses(item, visited, depth + 1));
+    parts.push(`errors: [${nested.join("; ")}]`);
+  }
+  if (errObj.cause !== undefined) {
+    parts.push(`cause: ${formatErrorWithCauses(errObj.cause, visited, depth + 1)}`);
+  }
+
+  return parts.join(" | ");
+}
+
+export function sanitizeErrorMessage(error: unknown, rawUrl?: string): string {
+  let msg = formatErrorWithCauses(error);
+  if (rawUrl) {
+    const redactedTarget = redactDatabaseUrl(rawUrl);
+    if (msg.includes(rawUrl)) {
+      msg = msg.split(rawUrl).join(redactedTarget);
+    }
+    const { password } = extractRawCredentials(rawUrl);
+    if (password && password.length >= 6 && msg.includes(password)) {
+      msg = msg.split(password).join("***");
+    }
+  }
+  return redactInlineUrls(msg);
+}
+
 export async function migrateSqliteToPostgres(
   postgresUrl: string = "postgresql://postgres:postgres@localhost:5432/texlink_test"
 ): Promise<{ success: boolean; stats: MigrationStats[]; error?: string }> {
   console.log(`Starting data migration: SQLite -> PostgreSQL`);
-  console.log(`Target: ${postgresUrl}`);
+  console.log(`Target: ${redactDatabaseUrl(postgresUrl)}`);
 
   const sourcePrisma = new PrismaClient();
   const pool = new Pool({ connectionString: postgresUrl });
@@ -103,11 +218,12 @@ export async function migrateSqliteToPostgres(
     console.log(`\n✓ Migration completed successfully. Total tables: ${stats.length}`);
     return { success: true, stats };
   } catch (error: unknown) {
-    console.error(`Migration error:`, error);
+    const safeError = sanitizeErrorMessage(error, postgresUrl);
+    console.error(`Migration error: ${safeError}`);
     return {
       success: false,
       stats,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeError,
     };
   } finally {
     await sourcePrisma.$disconnect();
@@ -115,17 +231,22 @@ export async function migrateSqliteToPostgres(
   }
 }
 
+export async function runCli(
+  runMigration: () => Promise<{ success: boolean; stats: MigrationStats[]; error?: string }> = migrateSqliteToPostgres
+): Promise<number> {
+  try {
+    const result = await runMigration();
+    if (!result.success) {
+      console.error("Migration failed:", sanitizeErrorMessage(result.error));
+      return 1;
+    }
+    return 0;
+  } catch (err) {
+    console.error("Migration crashed:", sanitizeErrorMessage(err));
+    return 1;
+  }
+}
+
 if (require.main === module) {
-  migrateSqliteToPostgres()
-    .then((result) => {
-      if (!result.success) {
-        console.error("Migration failed:", result.error);
-        process.exit(1);
-      }
-      process.exit(0);
-    })
-    .catch((err) => {
-      console.error(err);
-      process.exit(1);
-    });
+  runCli().then((code) => process.exit(code));
 }

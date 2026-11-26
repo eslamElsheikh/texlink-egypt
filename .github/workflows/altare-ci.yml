@@ -146,7 +146,6 @@ jobs:
           docker build \
             --build-arg DATABASE_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
             --build-arg DIRECT_URL="postgresql://texlink:testpassword123@localhost:5432/texlink?schema=public" \
-            --build-arg JWT_SECRET="ci-testing-jwt-secret-key-minimum-32-characters-entropy-check" \
             -t cysle-egypt:production-ready .
 
       - name: 1. Verify Container Process Runs as Non-Root UID 1001
