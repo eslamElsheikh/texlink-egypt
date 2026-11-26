@@ -66,8 +66,8 @@ export default function FactoryProfilePage() {
         setPhone(f.phone || "");
         setWhatsapp(f.whatsapp || "");
         setBioAr(f.bioAr || "");
-        setMinOrderQuantity(String(f.minOrderQuantity || 50));
-        setMonthlyCapacity(String(f.monthlyCapacity || 5000));
+        setMinOrderQuantity(f.minOrderQuantity != null ? String(f.minOrderQuantity) : "");
+        setMonthlyCapacity(f.monthlyCapacity != null ? String(f.monthlyCapacity) : "");
 
         try {
           const s = JSON.parse(f.specialties || "[]");
@@ -306,7 +306,7 @@ export default function FactoryProfilePage() {
               <label className="block text-xs font-bold text-gray-700 mb-1">الطاقة الإنتاجية الشهرية (قطعة)</label>
               <input
                 type="number"
-                min="100"
+                min="1"
                 value={monthlyCapacity}
                 onChange={(e) => setMonthlyCapacity(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#079B62] focus:outline-none"

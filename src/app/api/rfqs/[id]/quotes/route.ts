@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { getCurrentUser } from "@/lib/auth/session";
+import { resolveFactoryContext } from "@/lib/auth/factory-context";
 import { z } from "zod";
 
 const submitQuoteSchema = z.object({
@@ -19,26 +19,25 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const session = await getCurrentUser();
-
-    if (!session) {
-      return NextResponse.json({ error: "يرجى تسجيل الدخول أولاً" }, { status: 401 });
+    const ctx = await resolveFactoryContext(req);
+    if ("error" in ctx) {
+      return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
 
-    // Must be factory
-    let factoryId = session.factoryId;
-    if (!factoryId) {
-      const userFactory = await prisma.factoryProfile.findUnique({
-        where: { userId: session.id },
-      });
-      if (userFactory) {
-        factoryId = userFactory.id;
-      } else {
-        return NextResponse.json(
-          { error: "هذه العملية متاحة للمصانع المسجلة فقط" },
-          { status: 403 }
-        );
-      }
+    const { factory, factoryId, settings } = ctx;
+
+    if (!settings?.marketplaceEnabled) {
+      return NextResponse.json(
+        { error: "حساب المصنع مضبوط على وضع الإدارة فقط؛ قم بتفعيل السوق التجاري لتقديم عروض أسعار" },
+        { status: 403 }
+      );
+    }
+
+    if (factory.verificationStatus !== "VERIFIED") {
+      return NextResponse.json(
+        { error: "يجب إتمام التحقق الميداني للمصنع قبل تقديم عروض الأسعار في السوق" },
+        { status: 403 }
+      );
     }
 
     const rfq = await prisma.rfq.findUnique({
@@ -112,10 +111,6 @@ export async function POST(
     }
 
     // Notify buyer
-    const factory = await prisma.factoryProfile.findUnique({
-      where: { id: factoryId },
-    });
-
     await prisma.notification.create({
       data: {
         userId: rfq.buyerId,

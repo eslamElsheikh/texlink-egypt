@@ -6,6 +6,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ALL_GOVERNORATE_NAMES_AR, getIndustrialAreasForGovernorate } from "@/config/locations";
+import { classifyFactorySizeSegment } from "@/lib/factory/classification";
 import {
   Building2,
   FileCheck,
@@ -34,22 +35,24 @@ function FactoryRegisterForm() {
     password: "",
     phone: "",
 
-    // Factory details
+    // Factory details (no assumed or placeholder user facts)
     factoryNameAr: "",
-    governorate: "الدقهلية",
-    industrialArea: "mansoura-salamon",
-    city: "المنصورة",
+    governorate: "",
+    industrialArea: "",
+    city: "",
     address: "",
     whatsapp: "",
     bioAr: "",
-    establishedYear: 2018,
-    monthlyCapacity: 20000,
-    minOrderQuantity: 50,
+    establishedYear: "" as string | number,
+    workerCount: "" as string | number,
+    machineCount: "" as string | number,
+    monthlyCapacity: "" as string | number,
+    minOrderQuantity: "" as string | number,
 
-    // Capabilities
-    specialties: ["تيشيرتات وبولو"] as string[],
-    machines: ["ماكينات خياطة سنجر وأوفرلوك"] as string[],
-    fabrics: ["قطن مصري 100%"] as string[],
+    // Optional Capabilities
+    specialties: [] as string[],
+    machines: [] as string[],
+    fabrics: [] as string[],
 
     // Documents
     commercialRegisterUrl: "",
@@ -71,12 +74,16 @@ function FactoryRegisterForm() {
   const governorates = ALL_GOVERNORATE_NAMES_AR;
   const availableSpecialties = [
     "تيشيرتات وبولو",
+    "تريكو مسطح (فلات)",
+    "أقمشة تريكو دائري",
+    "لضم وتشطيب",
     "هوديز وسويت شيرت",
     "سويت بانتس وشورتات",
+    "بيجامات وملابس منزلية",
     "شرابات وجوارب",
     "ملابس أطفال",
     "ملابس داخلية قطنية",
-    "أقمشة تريكو دائري",
+    "تشغيل للغير (عقد تصنيع)",
     "طباعة سلك سكرين",
     "تطريز كمبيوتر",
   ];
@@ -108,6 +115,24 @@ function FactoryRegisterForm() {
         : [...prev.fabrics, fab],
     }));
   };
+
+  const toggleMachine = (mach: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      machines: prev.machines.includes(mach)
+        ? prev.machines.filter((m) => m !== mach)
+        : [...prev.machines, mach],
+    }));
+  };
+
+  const availableMachines = [
+    "ماكينة تريكو مسطح (فلات)",
+    "ماكينة تريكو دائري",
+    "ماكينة أوفرلوك",
+    "ماكينة سنجر خياطة",
+    "ماكينة لضم وتشطيب",
+    "مكبس / طباعة / تطريز",
+  ];
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -154,13 +179,42 @@ function FactoryRegisterForm() {
 
   const handleSubmit = async () => {
     setError("");
+    const parsedWorkers = parseInt(String(formData.workerCount), 10);
+    const parsedMachines = parseInt(String(formData.machineCount), 10);
+    const parsedMoq = parseInt(String(formData.minOrderQuantity), 10);
+    if (!Number.isFinite(parsedWorkers) || parsedWorkers < 1) {
+      setError("يرجى إدخال عدد العاملين (1 على الأقل)");
+      return;
+    }
+    if (!Number.isFinite(parsedMachines) || parsedMachines < 1) {
+      setError("يرجى إدخال عدد الماكينات المتاحة (1 على الأقل)");
+      return;
+    }
+    if (!Number.isFinite(parsedMoq) || parsedMoq < 1) {
+      setError("يرجى إدخال الحد الأدنى للطلب (1 قطعة على الأقل)");
+      return;
+    }
+
+    const parsedYear =
+      formData.establishedYear !== "" ? parseInt(String(formData.establishedYear), 10) : null;
+    const parsedCap =
+      formData.monthlyCapacity !== "" ? parseInt(String(formData.monthlyCapacity), 10) : null;
+
     setLoading(true);
 
     try {
+      const payload = {
+        ...formData,
+        establishedYear: parsedYear && Number.isFinite(parsedYear) ? parsedYear : null,
+        workerCount: parsedWorkers,
+        machineCount: parsedMachines,
+        monthlyCapacity: parsedCap && Number.isFinite(parsedCap) ? parsedCap : null,
+        minOrderQuantity: parsedMoq,
+      };
       const res = await fetch("/api/factories/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -253,7 +307,7 @@ function FactoryRegisterForm() {
             <p className="text-slate-600 text-sm max-w-md mx-auto leading-relaxed">
               {formData.usageMode === "MANAGEMENT_ONLY"
                 ? "مساحة إدارة وتشغيل المصنع (Factory OS) مفعلة وجاهزة للعمل فوراً. يمكنك الآن البدء في تسجيل الماكينات، أوامر الإنتاج، المخازن، والعمالة."
-                : "طلبك الآن في مرحلة التدقيق لدى إدارة سايسل مصر للتأكد من السجل التجاري والبيانات الصناعية. ستتلقى إشعاراً بالموافقة وتفعيل شارة المصنع المعتمد خلال 24 ساعة عمل."}
+                : "تم إنشاء ملف المصنع بنجاح (سواء كنت تعمل بماكينة واحدة أو بخط إنتاج متكامل). طلبك الآن في مرحلة التحقق الميداني لدى إدارة سايسل مصر، وستبقى حالة المستندات القانونية مستقلة تماماً عن شارة التحقق الميداني."}
             </p>
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -398,6 +452,7 @@ function FactoryRegisterForm() {
                       }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
                     >
+                      <option value="">-- اختر المحافظة --</option>
                       {governorates.map((gov) => (
                         <option key={gov} value={gov}>
                           {gov}
@@ -539,15 +594,16 @@ function FactoryRegisterForm() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      سنة تأسيس المصنع
+                      سنة تأسيس المصنع (اختياري)
                     </label>
                     <input
                       type="number"
+                      placeholder="مثال: 2022"
                       value={formData.establishedYear}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          establishedYear: parseInt(e.target.value) || 2020,
+                          establishedYear: e.target.value,
                         })
                       }
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
@@ -557,11 +613,11 @@ function FactoryRegisterForm() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    نبذة تعريفية عن المصنع وإمكانياته *
+                    نبذة تعريفية عن المصنع وإمكانياته (اختياري)
                   </label>
                   <textarea
                     rows={3}
-                    placeholder="اكتب نبذة عن تاريخ المصنع وخبراته ومجالات التميز التي تخدم المشترين..."
+                    placeholder="اكتب نبذة حقيقية عن نشاط المصنع والماكينات المتاحة (اختياري)..."
                     value={formData.bioAr}
                     onChange={(e) =>
                       setFormData({ ...formData, bioAr: e.target.value })
@@ -574,8 +630,16 @@ function FactoryRegisterForm() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (!formData.factoryNameAr || !formData.email || !formData.phone) {
-                        setError("يرجى ملء كافة الحقول الأساسية المطلوبة");
+                      if (
+                        !formData.factoryNameAr ||
+                        !formData.governorate ||
+                        !formData.city ||
+                        !formData.address ||
+                        !formData.email ||
+                        !formData.phone ||
+                        !formData.whatsapp
+                      ) {
+                        setError("يرجى ملء كافة الحقول الأساسية المطلوبة (بما فيها المحافظة والعنوان والهاتف)");
                         return;
                       }
                       setError("");
@@ -656,16 +720,94 @@ function FactoryRegisterForm() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      الطاقة الإنتاجية الشهرية التقديرية (قطعة) *
+                      عدد العاملين / المشغلين (بما فيهم المالك) *
                     </label>
                     <input
                       type="number"
-                      step={1000}
+                      min={1}
+                      step={1}
+                      placeholder="مثال: 1"
+                      value={formData.workerCount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          workerCount: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                    />
+                    {Number(formData.workerCount) >= 1 && (
+                      <p className="text-[11px] text-emerald-700 mt-1 font-medium">
+                        التصنيف التشغيلي: {classifyFactorySizeSegment(Number(formData.workerCount)).labelAr}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      عدد الماكينات المتاحة *
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="مثال: 1"
+                      value={formData.machineCount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          machineCount: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      نرحب بجميع المصانع بدءاً من ماكينة واحدة.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">
+                    أنواع الماكينات المتاحة (اختياري — اختر ما ينطبق فعلياً)
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {availableMachines.map((mach) => {
+                      const selected = formData.machines.includes(mach);
+                      return (
+                        <button
+                          type="button"
+                          key={mach}
+                          onClick={() => toggleMachine(mach)}
+                          className={`p-3 rounded-xl border text-xs font-medium text-right transition-all flex items-center justify-between ${
+                            selected
+                              ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span>{mach}</span>
+                          {selected && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      الطاقة الإنتاجية الشهرية التقديرية (قطعة — اختياري)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="اتركه فارغاً إذا لم يُحدد بعد"
                       value={formData.monthlyCapacity}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          monthlyCapacity: parseInt(e.target.value) || 5000,
+                          monthlyCapacity: e.target.value,
                         })
                       }
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
@@ -678,12 +820,14 @@ function FactoryRegisterForm() {
                     </label>
                     <input
                       type="number"
-                      step={10}
+                      min={1}
+                      step={1}
+                      placeholder="مثال: 1 (من قطعة واحدة)"
                       value={formData.minOrderQuantity}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          minOrderQuantity: parseInt(e.target.value) || 50,
+                          minOrderQuantity: e.target.value,
                         })
                       }
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#059669]"
@@ -702,7 +846,17 @@ function FactoryRegisterForm() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setStep(3)}
+                    onClick={() => {
+                      const w = parseInt(String(formData.workerCount), 10);
+                      const m = parseInt(String(formData.machineCount), 10);
+                      const moqVal = parseInt(String(formData.minOrderQuantity), 10);
+                      if (!Number.isFinite(w) || w < 1 || !Number.isFinite(m) || m < 1 || !Number.isFinite(moqVal) || moqVal < 1) {
+                        setError("يرجى إدخال أرقام صحيحة لعدد العاملين والماكينات والحد الأدنى للطلب (1 على الأقل)");
+                        return;
+                      }
+                      setError("");
+                      setStep(3);
+                    }}
                     className="bg-[#059669] hover:bg-[#047857] text-white px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all"
                   >
                     <span>التالي: مستندات التوثيق</span>
@@ -719,10 +873,9 @@ function FactoryRegisterForm() {
                   <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-sm mb-1">
-                      لماذا نطلب مستندات رسمية؟
+                      التوثيق الميداني والمستندات القانونية (اختياري)
                     </p>
-                    سايسل مصر منصة موثوقة حصرياً للمصانع والورش والمنشآت المسجلة
-                    لحماية حقوق التجار والمصنعين وتجنب الوسطاء غير الجادين.
+                    سايسل مصر منصة مخصصة للمصانع الإنتاجية بجميع أحجامها بدءاً من مصنع الفرد الواحد بماكينة واحدة. رفع السجل التجاري أو البطاقة الضريبية اختياري تماماً؛ يتم التحقق من الوجود التشغيلي للمصنع بشكل مستقل، ويُضاف التوثيق القانوني كشارة ثقة إضافية متى توفر.
                   </div>
                 </div>
 
@@ -730,7 +883,7 @@ function FactoryRegisterForm() {
                 <div className="border border-dashed border-slate-300 rounded-xl p-5 text-center bg-slate-50 hover:bg-slate-100/60 transition-colors">
                   <FileCheck className="w-8 h-8 text-[#059669] mx-auto mb-2" />
                   <h4 className="text-sm font-bold text-slate-800">
-                    صورة السجل التجاري الحديث (موصى به للتوثيق السريع)
+                    صورة السجل التجاري (اختياري — لإضافة شارة السجل التجاري الموثق)
                   </h4>
                   <p className="text-xs text-slate-500 mt-1 mb-3">
                     ملف PDF أو صورة واضحة (الحد الأقصى 10 ميجابايت)
@@ -758,7 +911,7 @@ function FactoryRegisterForm() {
                 <div className="border border-dashed border-slate-300 rounded-xl p-5 text-center bg-slate-50 hover:bg-slate-100/60 transition-colors">
                   <FileCheck className="w-8 h-8 text-[#059669] mx-auto mb-2" />
                   <h4 className="text-sm font-bold text-slate-800">
-                    صورة البطاقة الضريبية السارية
+                    صورة البطاقة الضريبية السارية (اختياري)
                   </h4>
                   <p className="text-xs text-slate-500 mt-1 mb-3">
                     ملف PDF أو صورة واضحة (الحد الأقصى 10 ميجابايت)

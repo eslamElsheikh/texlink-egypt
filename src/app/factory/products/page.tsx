@@ -37,7 +37,7 @@ export default function FactoryProductsPage() {
   const [fabric, setFabric] = useState("قطن 100% سينجل جيرسي");
   const [gsm, setGsm] = useState<number | undefined>(180);
   const [basePrice, setBasePrice] = useState(65);
-  const [moq, setMoq] = useState(50);
+  const [moq, setMoq] = useState(1);
   const [stockQuantity, setStockQuantity] = useState(500);
   const [submitting, setSubmitting] = useState(false);
 

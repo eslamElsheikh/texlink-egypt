@@ -77,7 +77,7 @@ export async function matchFactoriesForRfq(rfq: {
     }
 
     // 3. Capacity & MOQ Match (up to 15 pts)
-    if (factory.monthlyCapacity >= rfq.totalQuantity) {
+    if (factory.monthlyCapacity != null && factory.monthlyCapacity >= rfq.totalQuantity) {
       score += 15;
       matchReasons.push("الطاقة الاستيعابية ملائمة للكمية");
     }

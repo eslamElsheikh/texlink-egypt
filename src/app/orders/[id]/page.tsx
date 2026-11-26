@@ -507,7 +507,7 @@ export default function OrderDetailPage({
                 </div>
 
                 <div>
-                  <span className="text-slate-500 block text-[11px]">العنوان الدقيق للورشة / المصنع:</span>
+                  <span className="text-slate-500 block text-[11px]">العنوان الدقيق للمصنع:</span>
                   <span className="font-semibold text-slate-800 leading-relaxed block">
                     {order.factory.address}
                   </span>

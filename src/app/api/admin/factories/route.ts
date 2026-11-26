@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
+import { classifyFactorySizeSegment } from "@/lib/factory/classification";
 
 export async function GET() {
   try {
     const session = await getCurrentUser();
-    if (!session || session.role !== "ADMIN") {
+    const role = (session?.role || "").toUpperCase();
+    if (!session || (role !== "ADMIN" && role !== "PLATFORM_ADMIN")) {
       return NextResponse.json({ error: "غير مصرح لك" }, { status: 403 });
     }
 
@@ -19,6 +21,7 @@ export async function GET() {
 
     const parsed = factories.map((f) => ({
       ...f,
+      sizeSegment: classifyFactorySizeSegment(f.workerCount),
       specialties: JSON.parse(f.specialties || "[]") as string[],
       machines: JSON.parse(f.machines || "[]") as string[],
       fabrics: JSON.parse(f.fabrics || "[]") as string[],

@@ -5,7 +5,7 @@ import { NotificationService } from "@/lib/notifications";
 import { z } from "zod";
 
 const createProductOrderSchema = z.object({
-  quantity: z.number().int().min(10, "الحد الأدنى للطلب 10 قطع"),
+  quantity: z.number().int().min(1, "الكمية المطلوبة يجب أن تكون قطعة واحدة على الأقل"),
   selectedColors: z.string().optional(),
   selectedSizes: z.string().optional(),
   deliveryAddress: z.string().min(5, "العنوان ومكان الاستلام مطلوب"),
@@ -27,18 +27,39 @@ export async function POST(
       );
     }
 
+    if (!session.isBuyer && session.role !== "BUYER" && session.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "تقديم طلبات الشراء متاح لحسابات المشترين والمصانع المفعّلة للشراء فقط" },
+        { status: 403 }
+      );
+    }
+
     const buyerId = session.id;
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        factory: { include: { user: true } },
+        factory: { include: { user: true, settings: true } },
         priceTiers: { orderBy: { minQuantity: "desc" } },
       },
     });
 
     if (!product) {
       return NextResponse.json({ error: "المنتج غير موجود" }, { status: 404 });
+    }
+
+    if (
+      !product.isActive ||
+      !product.factory ||
+      product.factory.isDemo ||
+      product.factory.accountStatus !== "ACTIVE" ||
+      product.factory.verificationStatus !== "VERIFIED" ||
+      !product.factory.settings?.marketplaceEnabled
+    ) {
+      return NextResponse.json(
+        { error: "هذا المنتج غير متاح للبيع حالياً أو المصنع غير موثق أو غير مفعّل للسوق" },
+        { status: 403 }
+      );
     }
 
     const body = await req.json();
@@ -54,9 +75,10 @@ export async function POST(
     const { quantity, selectedColors, selectedSizes, deliveryAddress, notes } =
       parsed.data;
 
-    if (quantity < product.moq) {
+    const effectiveMoq = Math.max(1, product.moq || 1);
+    if (quantity < effectiveMoq) {
       return NextResponse.json(
-        { error: `الحد الأدنى لطلب هذا المنتج هو ${product.moq} قطعة` },
+        { error: `الحد الأدنى لطلب هذا المنتج هو ${effectiveMoq} قطعة` },
         { status: 400 }
       );
     }

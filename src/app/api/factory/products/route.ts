@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { getCurrentUser } from "@/lib/auth/session";
+import { resolveFactoryContext } from "@/lib/auth/factory-context";
 import { z } from "zod";
 
 const createProductSchema = z.object({
@@ -9,7 +9,7 @@ const createProductSchema = z.object({
   fabric: z.string().min(2, "الخامة مطلوبة"),
   gsm: z.number().optional(),
   basePrice: z.number().positive("السعر مطلوب"),
-  moq: z.number().int().min(1).default(50),
+  moq: z.number().int().min(1, "الحد الأدنى للطلب قطعة واحدة على الأقل").default(1),
   leadTimeDays: z.number().int().min(1).default(7),
   stockQuantity: z.number().int().min(1).default(100),
   categorySlug: z.string().default("t-shirts"),
@@ -22,27 +22,16 @@ const createProductSchema = z.object({
   ).optional(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await getCurrentUser();
-    if (!session) {
-      return NextResponse.json({ error: "غير مصرح لك" }, { status: 401 });
+    const ctx = await resolveFactoryContext(req);
+    if ("error" in ctx) {
+      return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
-
-    let factory = await prisma.factoryProfile.findUnique({
-      where: { userId: session.id },
-    });
-
-    if (!factory && session.role === "ADMIN") {
-      factory = await prisma.factoryProfile.findFirst();
-    }
-
-    if (!factory) {
-      return NextResponse.json({ error: "لا يوجد مصنع مرتبط" }, { status: 404 });
-    }
+    const { factoryId } = ctx;
 
     const products = await prisma.product.findMany({
-      where: { factoryId: factory.id },
+      where: { factoryId },
       include: {
         category: true,
         priceTiers: { orderBy: { minQuantity: "asc" } },
@@ -67,21 +56,24 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const session = await getCurrentUser();
-    if (!session) {
-      return NextResponse.json({ error: "غير مصرح لك" }, { status: 401 });
+    const ctx = await resolveFactoryContext(req);
+    if ("error" in ctx) {
+      return NextResponse.json({ error: ctx.error }, { status: ctx.status });
+    }
+    const { factory, factoryId, settings } = ctx;
+
+    if (!settings?.marketplaceEnabled) {
+      return NextResponse.json(
+        { error: "حساب المصنع مضبوط على وضع الإدارة فقط؛ قم بتفعيل السوق التجاري لنشر منتجات جاهزة" },
+        { status: 403 }
+      );
     }
 
-    let factory = await prisma.factoryProfile.findUnique({
-      where: { userId: session.id },
-    });
-
-    if (!factory && session.role === "ADMIN") {
-      factory = await prisma.factoryProfile.findFirst();
-    }
-
-    if (!factory) {
-      return NextResponse.json({ error: "لا يوجد مصنع مرتبط" }, { status: 404 });
+    if (factory.verificationStatus !== "VERIFIED") {
+      return NextResponse.json(
+        { error: "يجب إتمام التحقق الميداني للمصنع قبل نشر منتجات عامة في السوق" },
+        { status: 403 }
+      );
     }
 
     const body = await req.json();

@@ -43,8 +43,8 @@ interface Factory {
   coverUrl?: string;
   verificationStatus: string;
   minOrderQuantity: number;
-  monthlyCapacity: number;
-  establishedYear: number;
+  monthlyCapacity: number | null;
+  establishedYear: number | null;
   rating: number;
   reviewCount: number;
   specialties: string[];
@@ -427,7 +427,11 @@ function FactoriesContent() {
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px]">الطاقة الشهرية:</span>
-                        <span className="font-bold text-slate-800">{factory.monthlyCapacity.toLocaleString()} قطعة</span>
+                        <span className="font-bold text-slate-800">
+                          {factory.monthlyCapacity != null
+                            ? `${factory.monthlyCapacity.toLocaleString()} قطعة`
+                            : "غير محدد"}
+                        </span>
                       </div>
                     </div>
                   </div>

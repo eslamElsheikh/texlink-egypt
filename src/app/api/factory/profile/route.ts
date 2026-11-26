@@ -36,6 +36,8 @@ export async function PATCH(request: Request) {
       bioAr,
       minOrderQuantity,
       monthlyCapacity,
+      workerCount,
+      machineCount,
       specialties,
       machines,
       fabrics,
@@ -49,8 +51,22 @@ export async function PATCH(request: Request) {
     if (phone) updateData.phone = phone;
     if (whatsapp) updateData.whatsapp = whatsapp;
     if (bioAr) updateData.bioAr = bioAr;
-    if (minOrderQuantity) updateData.minOrderQuantity = parseInt(String(minOrderQuantity), 10);
-    if (monthlyCapacity) updateData.monthlyCapacity = parseInt(String(monthlyCapacity), 10);
+    if (minOrderQuantity !== undefined) {
+      const parsedMoq = parseInt(String(minOrderQuantity), 10);
+      if (!Number.isNaN(parsedMoq) && parsedMoq >= 1) updateData.minOrderQuantity = parsedMoq;
+    }
+    if (monthlyCapacity !== undefined) {
+      const parsedCap = parseInt(String(monthlyCapacity), 10);
+      if (!Number.isNaN(parsedCap) && parsedCap >= 1) updateData.monthlyCapacity = parsedCap;
+    }
+    if (workerCount !== undefined) {
+      const parsedWorkers = parseInt(String(workerCount), 10);
+      if (!Number.isNaN(parsedWorkers) && parsedWorkers >= 1) updateData.workerCount = parsedWorkers;
+    }
+    if (machineCount !== undefined) {
+      const parsedMachines = parseInt(String(machineCount), 10);
+      if (!Number.isNaN(parsedMachines) && parsedMachines >= 1) updateData.machineCount = parsedMachines;
+    }
     if (specialties) updateData.specialties = typeof specialties === "string" ? specialties : JSON.stringify(specialties);
     if (machines) updateData.machines = typeof machines === "string" ? machines : JSON.stringify(machines);
     if (fabrics) updateData.fabrics = typeof fabrics === "string" ? fabrics : JSON.stringify(fabrics);

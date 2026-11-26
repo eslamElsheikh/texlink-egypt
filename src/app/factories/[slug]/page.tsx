@@ -65,10 +65,18 @@ interface FactoryDetail {
   logoUrl?: string;
   coverUrl?: string;
   verificationStatus: string;
+  commercialRegStatus?: string;
+  taxRegStatus?: string;
   verifiedAt?: string;
+  workerCount?: number;
+  machineCount?: number;
+  sizeSegment?: {
+    key: string;
+    labelAr: string;
+  };
   minOrderQuantity: number;
-  monthlyCapacity: number;
-  establishedYear: number;
+  monthlyCapacity: number | null;
+  establishedYear: number | null;
   rating: number;
   reviewCount: number;
   specialties: string[];
@@ -193,7 +201,20 @@ export default function FactoryDetailPage({
                   {factory.verificationStatus === "VERIFIED" && (
                     <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      مصنع موثق ومعتمد
+                      مصنع موثق ميدانياً
+                    </span>
+                  )}
+
+                  {factory.commercialRegStatus === "VERIFIED" && (
+                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                      سجل تجاري موثق
+                    </span>
+                  )}
+
+                  {factory.sizeSegment && (
+                    <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                      {factory.sizeSegment.labelAr}
                     </span>
                   )}
                 </div>
@@ -206,10 +227,12 @@ export default function FactoryDetailPage({
                       {factory.industrialArea ? ` — ${INDUSTRIAL_AREAS_BY_SLUG[factory.industrialArea]?.nameAr || factory.industrialArea}` : ""}
                     </span>
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    تأسس عام {factory.establishedYear}
-                  </span>
+                  {factory.establishedYear != null && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      تأسس عام {factory.establishedYear}
+                    </span>
+                  )}
                   <span>•</span>
                   <span className="flex items-center gap-1 font-bold text-slate-800">
                     <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
@@ -390,7 +413,7 @@ export default function FactoryDetailPage({
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <h3 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
                 <Phone className="w-4 h-4 text-[#542cb7]" />
-                <span>بيانات التواصل والورشة</span>
+                <span>بيانات التواصل والمصنع</span>
               </h3>
 
               {factory.canViewContact ? (
@@ -453,7 +476,11 @@ export default function FactoryDetailPage({
 
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500">الطاقة الإنتاجية الشهرية:</span>
-                <span className="font-bold text-slate-900">{factory.monthlyCapacity.toLocaleString()} قطعة</span>
+                <span className="font-bold text-slate-900">
+                  {factory.monthlyCapacity != null
+                    ? `${factory.monthlyCapacity.toLocaleString()} قطعة`
+                    : "غير محدد بعد"}
+                </span>
               </div>
 
               <div className="flex items-center justify-between text-xs">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 import { GOVERNORATES_BY_KEY, normalizeGovernorate } from "@/config/locations";
+import { classifyFactorySizeSegment } from "@/lib/factory/classification";
 
 export async function GET(req: Request) {
   try {
@@ -15,6 +16,10 @@ export async function GET(req: Request) {
     const capacityMin = searchParams.get("capacityMin")
       ? parseInt(searchParams.get("capacityMin")!, 10)
       : undefined;
+    const pageRaw = searchParams.get("page");
+    const limitRaw = searchParams.get("limit");
+    const page = pageRaw ? Math.max(1, parseInt(pageRaw, 10) || 1) : 1;
+    const limit = limitRaw ? Math.min(100, Math.max(1, parseInt(limitRaw, 10) || 50)) : undefined;
 
     // Normalize governorate if slug or legacy name passed
     let governorate = rawGovernorate;
@@ -24,50 +29,61 @@ export async function GET(req: Request) {
       governorate = normalizeGovernorate(governorate) || governorate;
     }
 
-    // Public directory strictly excludes isolated demo factories
-    const where: Prisma.FactoryProfileWhereInput = {
-      settings: { marketplaceEnabled: true },
-      isDemo: false,
-    };
+    // Public/buyer directory policy: ALWAYS exclude demo, suspended, disabled-marketplace, and unverified (PENDING/REJECTED) factories.
+    // Query params (verifiedOnly, filters, pagination) can never weaken this boundary.
+    const andConditions: Prisma.FactoryProfileWhereInput[] = [
+      { isDemo: false },
+      { accountStatus: "ACTIVE" },
+      { verificationStatus: "VERIFIED" },
+      { settings: { marketplaceEnabled: true } },
+    ];
     if (verifiedOnly) {
-      where.verificationStatus = "VERIFIED";
+      andConditions.push({ verificationStatus: "VERIFIED" });
     }
 
     if (governorate) {
-      where.governorate = { contains: governorate };
+      andConditions.push({ governorate: { contains: governorate } });
     }
 
     if (area) {
-      where.OR = [
-        { industrialArea: { contains: area } },
-        { address: { contains: area } },
-        { city: { contains: area } },
-      ];
+      andConditions.push({
+        OR: [
+          { industrialArea: { contains: area } },
+          { address: { contains: area } },
+          { city: { contains: area } },
+        ],
+      });
     }
-    if (capacityMin) {
-      where.monthlyCapacity = { gte: capacityMin };
+    if (capacityMin && Number.isFinite(capacityMin)) {
+      andConditions.push({ monthlyCapacity: { gte: capacityMin } });
     }
 
     if (q) {
-      where.OR = [
-        { nameAr: { contains: q } },
-        { bioAr: { contains: q } },
-        { specialties: { contains: q } },
-        { governorate: { contains: q } },
-      ];
+      andConditions.push({
+        OR: [
+          { nameAr: { contains: q } },
+          { bioAr: { contains: q } },
+          { specialties: { contains: q } },
+          { governorate: { contains: q } },
+        ],
+      });
     }
 
     if (specialty) {
-      where.specialties = { contains: specialty };
+      andConditions.push({ specialties: { contains: specialty } });
     }
 
     if (fabric) {
-      where.fabrics = { contains: fabric };
+      andConditions.push({ fabrics: { contains: fabric } });
     }
+
+    const where: Prisma.FactoryProfileWhereInput = { AND: andConditions };
 
     const factories = await prisma.factoryProfile.findMany({
       where,
       orderBy: [{ featured: "desc" }, { rating: "desc" }, { createdAt: "desc" }],
+      skip: limit ? (page - 1) * limit : undefined,
+      take: limit,
       include: {
         _count: {
           select: { products: true, reviewsReceived: true },
@@ -85,6 +101,11 @@ export async function GET(req: Request) {
       bioAr: f.bioAr,
       coverUrl: f.coverUrl,
       verificationStatus: f.verificationStatus,
+      commercialRegStatus: f.commercialRegStatus,
+      taxRegStatus: f.taxRegStatus,
+      workerCount: f.workerCount,
+      machineCount: f.machineCount,
+      sizeSegment: classifyFactorySizeSegment(f.workerCount),
       minOrderQuantity: f.minOrderQuantity,
       monthlyCapacity: f.monthlyCapacity,
       establishedYear: f.establishedYear,

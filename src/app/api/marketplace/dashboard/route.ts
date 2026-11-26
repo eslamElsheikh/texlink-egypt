@@ -8,7 +8,21 @@ export async function GET(request: Request) {
     if ("error" in ctx) {
       return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
-    const { factoryId, factory, isAdminPreview } = ctx;
+    const { factoryId, factory, settings, isAdminPreview } = ctx;
+
+    if (!settings?.marketplaceEnabled) {
+      return NextResponse.json(
+        { error: "حساب المصنع مضبوط على وضع الإدارة فقط؛ قم بتفعيل السوق التجاري للوصول إلى لوحة السوق" },
+        { status: 403 }
+      );
+    }
+
+    if (factory.verificationStatus !== "VERIFIED") {
+      return NextResponse.json(
+        { error: "يجب إتمام التحقق الميداني للمصنع قبل الوصول إلى لوحة السوق التجاري" },
+        { status: 403 }
+      );
+    }
 
     const [
       matchingRfqs,

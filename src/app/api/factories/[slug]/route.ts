@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
+import { classifyFactorySizeSegment } from "@/lib/factory/classification";
 
 export async function GET(
   req: Request,
@@ -13,6 +14,7 @@ export async function GET(
     const factory = await prisma.factoryProfile.findUnique({
       where: { slug },
       include: {
+        settings: { select: { marketplaceEnabled: true } },
         products: {
           where: { isActive: true },
           include: { priceTiers: true, category: true },
@@ -25,15 +27,30 @@ export async function GET(
           },
           orderBy: { createdAt: "desc" },
         },
-        documents: {
-          select: { id: true, type: true, fileName: true, status: true },
-        },
       },
     });
 
     if (!factory) {
       return NextResponse.json(
         { error: "المصنع المطلوب غير موجود" },
+        { status: 404 }
+      );
+    }
+
+    const normalizedRole = (session?.role || "").toUpperCase();
+    const isAdmin = normalizedRole === "ADMIN" || normalizedRole === "PLATFORM_ADMIN";
+    const isFactoryMember = Boolean(
+      session && (session.id === factory.userId || (session.factoryId && session.factoryId === factory.id))
+    );
+    const isPubliclyEligible =
+      !factory.isDemo &&
+      factory.accountStatus === "ACTIVE" &&
+      factory.verificationStatus === "VERIFIED" &&
+      Boolean(factory.settings?.marketplaceEnabled);
+
+    if (!isPubliclyEligible && !isAdmin && !isFactoryMember) {
+      return NextResponse.json(
+        { error: "المصنع المطلوب غير موجود أو غير متاح للعرض العام" },
         { status: 404 }
       );
     }
@@ -69,6 +86,11 @@ export async function GET(
         logoUrl: factory.logoUrl,
         coverUrl: factory.coverUrl,
         verificationStatus: factory.verificationStatus,
+        commercialRegStatus: factory.commercialRegStatus,
+        taxRegStatus: factory.taxRegStatus,
+        workerCount: factory.workerCount,
+        machineCount: factory.machineCount,
+        sizeSegment: classifyFactorySizeSegment(factory.workerCount),
         verifiedAt: factory.verifiedAt,
         minOrderQuantity: factory.minOrderQuantity,
         monthlyCapacity: factory.monthlyCapacity,

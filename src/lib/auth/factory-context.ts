@@ -95,30 +95,14 @@ export async function resolveFactoryContext(
     }
 
     if (!factory) {
-      // In production, require explicit targetFactoryId rather than silently guessing
-      const isProduction = process.env.NODE_ENV === "production";
-      if (isProduction && targetFactoryId) {
+      if (targetFactoryId) {
         return { error: "المصنع المحدد للمعاينة غير موجود", status: 404 };
       }
 
-      if (!isProduction) {
-        // Development / Preview fallback for testing convenience
-        factory = await prisma.factoryProfile.findFirst({
-          where: { slug: "el-nasr-tricot" },
-          include: { settings: true },
-        });
-
-        if (!factory) {
-          factory = await prisma.factoryProfile.findFirst({
-            include: { settings: true },
-          });
-        }
-      } else {
-        return {
-          error: "يجب على المشرف تحديد معرف المصنع المراد معاينته بواسطة inspectFactoryId",
-          status: 400,
-        };
-      }
+      return {
+        error: "يجب على المشرف تحديد معرف المصنع المراد معاينته بواسطة inspectFactoryId",
+        status: 400,
+      };
     }
 
     if (!factory) {

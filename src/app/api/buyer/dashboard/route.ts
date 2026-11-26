@@ -2,27 +2,46 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getCurrentUser();
     if (!session) {
       return NextResponse.json({ error: "غير مصرح لك" }, { status: 401 });
     }
 
-    let buyerId = session.id;
+    const normalizedRole = (session.role || "").toUpperCase();
+    const isAdmin = normalizedRole === "ADMIN" || normalizedRole === "PLATFORM_ADMIN";
 
-    // If an admin or test user visits, ensure they can view buyer data
+    let buyerId = session.id;
     let userRecord = await prisma.user.findUnique({
       where: { id: buyerId },
       include: { buyerProfile: true },
     });
 
-    if (!userRecord?.isBuyer && session.role === "ADMIN") {
-      const demoBuyer = await prisma.user.findFirst({
-        where: { isBuyer: true },
-        include: { buyerProfile: true },
-      });
-      if (demoBuyer) buyerId = demoBuyer.id;
+    if (isAdmin) {
+      const url = new URL(request.url);
+      const inspectBuyerId = url.searchParams.get("inspectBuyerId") || url.searchParams.get("buyerId");
+      if (inspectBuyerId) {
+        const targetBuyer = await prisma.user.findUnique({
+          where: { id: inspectBuyerId },
+          include: { buyerProfile: true },
+        });
+        if (!targetBuyer) {
+          return NextResponse.json({ error: "حساب المشتري المحدد غير موجود" }, { status: 404 });
+        }
+        buyerId = targetBuyer.id;
+        userRecord = targetBuyer;
+      } else if (!userRecord?.isBuyer) {
+        return NextResponse.json(
+          { error: "يجب على المشرف تحديد معرف المشتري المراد معاينته بواسطة inspectBuyerId" },
+          { status: 400 }
+        );
+      }
+    } else if (!userRecord?.isBuyer && normalizedRole !== "BUYER") {
+      return NextResponse.json(
+        { error: "لوحة المشتري متاحة لحسابات المشترين والمصانع المفعّلة للشراء فقط" },
+        { status: 403 }
+      );
     }
 
     // 1. Fetch Buyer's RFQs

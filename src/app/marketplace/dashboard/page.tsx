@@ -57,6 +57,7 @@ interface MarketplaceData {
 export default function MarketplaceDashboardPage() {
   const [data, setData] = useState<MarketplaceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [user, setUser] = useState({
     id: "marketplace-user",
@@ -70,11 +71,18 @@ export default function MarketplaceDashboardPage() {
 
   useEffect(() => {
     fetch("/api/marketplace/dashboard")
-      .then((res) => res.json())
-      .then((json) => {
+      .then(async (res) => {
+        const json = await res.json();
+        if (!res.ok) {
+          setError(json.error || "غير مصرح بالوصول إلى لوحة السوق التجاري");
+          return;
+        }
         if (json.kpis) setData(json);
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        console.error(err);
+        setError("تعذر تحميل بيانات السوق التجاري");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -107,6 +115,13 @@ export default function MarketplaceDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Error banner for MANAGEMENT_ONLY / unverified / unauthorized */}
+        {error && !loading && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl text-sm font-semibold">
+            {error}
+          </div>
+        )}
 
         {/* KPIs */}
         {data && (

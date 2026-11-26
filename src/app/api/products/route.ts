@@ -12,7 +12,12 @@ export async function GET(req: Request) {
 
     const where: Prisma.ProductWhereInput = {
       isActive: true,
-      factory: { isDemo: false },
+      factory: {
+        isDemo: false,
+        accountStatus: "ACTIVE",
+        verificationStatus: "VERIFIED",
+        settings: { marketplaceEnabled: true },
+      },
     };
     if (categorySlug && categorySlug !== "ALL") {
       where.category = { slug: categorySlug };

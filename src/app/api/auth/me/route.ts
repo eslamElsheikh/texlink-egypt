@@ -25,7 +25,17 @@ export async function GET() {
           slug: true,
           nameAr: true,
           verificationStatus: true,
+          commercialRegStatus: true,
+          taxRegStatus: true,
+          workerCount: true,
+          machineCount: true,
           rating: true,
+          settings: {
+            select: {
+              usageMode: true,
+              marketplaceEnabled: true,
+            },
+          },
         },
       },
       buyerProfile: {

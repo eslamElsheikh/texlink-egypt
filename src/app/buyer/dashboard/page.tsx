@@ -229,7 +229,7 @@ export default function BuyerDashboardPage() {
               دليل المصانع
             </span>
             <h3 className="text-sm font-bold text-slate-900 group-hover:text-[#079B62] transition-colors">
-              استكشف مصانع المحلة وشبرا
+              استكشف مصانع التريكو والملابس في مصر
             </h3>
             <p className="text-[11px] text-slate-500">
               تصفح المنشآت المعتمدة والمكائن

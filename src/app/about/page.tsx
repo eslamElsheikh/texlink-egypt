@@ -76,20 +76,20 @@ export default function AboutPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <span className="text-2xl font-black text-[#542cb7] block">المحلة الكبرى</span>
-                <span className="text-xs text-slate-500 mt-1 block">عاصمة صناعة الغزل والتريكو الدائري</span>
+                <span className="text-xl font-black text-[#542cb7] block">سلامون القماش — الدقهلية</span>
+                <span className="text-xs text-slate-500 mt-1 block">سوق التريكو المسطح والأقطان في مركز المنصورة</span>
               </div>
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <span className="text-2xl font-black text-[#542cb7] block">شبرا الخيمة</span>
-                <span className="text-xs text-slate-500 mt-1 block">مركز التفصيل والطباعة والملابس الجاهزة</span>
+                <span className="text-xl font-black text-[#542cb7] block">طنامل — مركز أجا</span>
+                <span className="text-xs text-slate-500 mt-1 block">قلعة تصنيع البلوفر والتريكو والملابس الشتوية</span>
               </div>
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <span className="text-2xl font-black text-[#542cb7] block">العاشر من رمضان</span>
-                <span className="text-xs text-slate-500 mt-1 block">كبرى مصانع الميلتون والملابس التصديرية</span>
+                <span className="text-xl font-black text-[#542cb7] block">المحلة وشبرا الخيمة</span>
+                <span className="text-xs text-slate-500 mt-1 block">مراكز الغزل والتفصيل والطباعة وتجهيز الأقمشة</span>
               </div>
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <span className="text-2xl font-black text-[#542cb7] block">برج العرب والمنوفية</span>
-                <span className="text-xs text-slate-500 mt-1 block">أحدث خطوط الجوارب والتريكو الآلي</span>
+                <span className="text-xl font-black text-[#542cb7] block">العاشر وبقية المحافظات</span>
+                <span className="text-xs text-slate-500 mt-1 block">مصانع الميلتون والملابس الجاهزة وخطوط التصدير</span>
               </div>
             </div>
           </div>

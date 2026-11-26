@@ -82,7 +82,7 @@ export function Footer() {
                   className="flex items-center gap-1.5 text-purple-300 hover:text-white transition-colors font-medium"
                 >
                   <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                  <span>مصانع المنصورة – سلامون</span>
+                  <span>سلامون القماش – مركز المنصورة – الدقهلية</span>
                 </Link>
               </li>
               <li>
@@ -91,7 +91,7 @@ export function Footer() {
                   className="flex items-center gap-1.5 text-purple-300 hover:text-white transition-colors font-medium"
                 >
                   <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                  <span>مصانع المنصورة – طنامل</span>
+                  <span>طنامل – مركز أجا – الدقهلية</span>
                 </Link>
               </li>
               <li>

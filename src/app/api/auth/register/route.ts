@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
-import { createSessionToken } from "@/lib/auth/session";
+import { createSessionToken, setSessionCookie } from "@/lib/auth/session";
+import { normalizeGovernorate } from "@/config/locations";
 import { z } from "zod";
 
 const registerSchema = z.object({
@@ -29,65 +30,111 @@ export async function POST(req: Request) {
     const { name, email, phone, password, accountType, companyName, governorate } =
       parsed.data;
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    const normalizedEmail = email.toLowerCase();
+    const passwordHash = await hashPassword(password);
+    const isFactory = accountType === "FACTORY" || accountType === "BOTH";
+    const isBuyer = accountType === "BUYER" || accountType === "BOTH";
+    const mainRole = accountType === "FACTORY" ? "FACTORY" : "BUYER";
+    const trimmedGov = governorate?.trim() || "";
+    const resolvedGov = trimmedGov ? normalizeGovernorate(trimmedGov) || trimmedGov : "";
+    const resolvedCity = trimmedGov;
+
+    const txResult = await prisma.$transaction(async (tx) => {
+      const existingUser = await tx.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      if (existingUser) {
+        return { duplicate: true as const };
+      }
+
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email: normalizedEmail,
+          phone,
+          passwordHash,
+          role: mainRole,
+          isFactory,
+          isBuyer,
+          buyerProfile: isBuyer
+            ? {
+                create: {
+                  companyName: companyName || name,
+                  businessType: "WHOLESALER",
+                  governorate: resolvedGov,
+                },
+              }
+            : undefined,
+          factoryProfile: isFactory
+            ? {
+                create: {
+                  nameAr: companyName || `مصنع ${name}`,
+                  slug: `factory-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+                  governorate: resolvedGov,
+                  city: resolvedCity,
+                  address: resolvedCity,
+                  phone,
+                  whatsapp: phone,
+                  bioAr: "",
+                  establishedYear: null,
+                  verificationStatus: "PENDING",
+                  commercialRegStatus: "UNREGISTERED",
+                  taxRegStatus: "UNREGISTERED",
+                  workerCount: 1,
+                  machineCount: 1,
+                  minOrderQuantity: 1,
+                  monthlyCapacity: null,
+                  specialties: "[]",
+                  machines: "[]",
+                  fabrics: "[]",
+                  settings: {
+                    create: {
+                      usageMode: "FULL_ACCESS",
+                      marketplaceEnabled: true,
+                      autoMatchEnabled: true,
+                      wasteThresholdPct: 5.0,
+                      lowStockAlertThreshold: 50,
+                      workingHoursPerShift: 8.0,
+                      currency: "EGP",
+                      traceabilityEnabled: true,
+                    },
+                  },
+                  warehouses: {
+                    create: {
+                      name: "المستودع الرئيسي",
+                      location: resolvedCity,
+                      type: "RAW_MATERIALS",
+                    },
+                  },
+                },
+              }
+            : undefined,
+        },
+        include: {
+          factoryProfile: true,
+          buyerProfile: true,
+        },
+      });
+
+      if (newUser.factoryProfile) {
+        await tx.user.update({
+          where: { id: newUser.id },
+          data: { factoryId: newUser.factoryProfile.id },
+        });
+      }
+
+      return { duplicate: false as const, newUser };
     });
 
-    if (existingUser) {
+    if (txResult.duplicate) {
       return NextResponse.json(
         { error: "هذا البريد الإلكتروني مسجل بالفعل" },
         { status: 400 }
       );
     }
 
-    const passwordHash = await hashPassword(password);
-    const isFactory = accountType === "FACTORY" || accountType === "BOTH";
-    const isBuyer = accountType === "BUYER" || accountType === "BOTH";
-    const mainRole = accountType === "FACTORY" ? "FACTORY" : "BUYER";
-
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        phone,
-        passwordHash,
-        role: mainRole,
-        isFactory,
-        isBuyer,
-        buyerProfile: isBuyer
-          ? {
-              create: {
-                companyName: companyName || name,
-                businessType: "WHOLESALER",
-                governorate: governorate || "القاهرة",
-              },
-            }
-          : undefined,
-        factoryProfile: isFactory
-          ? {
-              create: {
-                nameAr: companyName || `مصنع ${name}`,
-                slug: `factory-${Date.now()}`,
-                governorate: governorate || "المحلة الكبرى",
-                city: "المحلة",
-                address: "المنطقة الصناعية",
-                phone,
-                whatsapp: phone,
-                bioAr: "مصنع تريكو وملابس جاهزة متخصص في الجودة العالية والإنتاج الكمي.",
-                verificationStatus: "PENDING",
-                specialties: JSON.stringify(["تيشيرتات", "بولو"]),
-                machines: JSON.stringify(["ماكينات خياطة سنجر", "أوفرلوك"]),
-                fabrics: JSON.stringify(["قطن 100%", "سينجل جيرسي"]),
-              },
-            }
-          : undefined,
-      },
-      include: {
-        factoryProfile: true,
-        buyerProfile: true,
-      },
-    });
-
+    const { newUser } = txResult;
     const sessionPayload = {
       id: newUser.id,
       email: newUser.email,
@@ -101,21 +148,12 @@ export async function POST(req: Request) {
     };
 
     const token = await createSessionToken(sessionPayload);
+    await setSessionCookie(token);
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       user: sessionPayload,
     });
-
-    response.cookies.set("texlink_session", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
-
-    return response;
   } catch (error) {
     console.error("Register error:", error);
     return NextResponse.json(

@@ -92,24 +92,21 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getCurrentUser();
-    let buyerId: string;
-
-    if (session) {
-      buyerId = session.id;
-    } else {
-      // Find or create default demo buyer if guest posts
-      const defaultBuyer = await prisma.user.findFirst({
-        where: { role: "BUYER" },
-      });
-      if (defaultBuyer) {
-        buyerId = defaultBuyer.id;
-      } else {
-        return NextResponse.json(
-          { error: "يرجى تسجيل الدخول لنشر طلب تصنيع" },
-          { status: 401 }
-        );
-      }
+    if (!session) {
+      return NextResponse.json(
+        { error: "يرجى تسجيل الدخول لنشر طلب تصنيع" },
+        { status: 401 }
+      );
     }
+
+    if (!session.isBuyer && session.role !== "BUYER" && session.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "إنشاء طلبات عروض الأسعار متاح لحسابات المشترين والمصانع المفعّلة للشراء فقط" },
+        { status: 403 }
+      );
+    }
+
+    const buyerId = session.id;
 
     const body = await req.json();
     const parsed = createRfqSchema.safeParse(body);

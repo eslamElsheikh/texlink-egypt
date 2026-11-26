@@ -71,7 +71,7 @@ export default function ProductDetailPage({
   const [error, setError] = useState("");
 
   // Order form state
-  const [quantity, setQuantity] = useState<number>(50);
+  const [quantity, setQuantity] = useState<number>(1);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("القاهرة - مدينة نصر");
@@ -89,7 +89,7 @@ export default function ProductDetailPage({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "المنتج غير موجود");
       setProduct(json.product);
-      setQuantity(json.product.moq || 50);
+      setQuantity(Math.max(1, json.product.moq || 1));
       if (json.product.colors?.[0]) setSelectedColor(json.product.colors[0]);
       if (json.product.sizes?.[0]) setSelectedSize(json.product.sizes[0]);
     } catch (err: unknown) {
@@ -125,6 +125,11 @@ export default function ProductDetailPage({
   const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!product) return;
+    const minAllowed = Math.max(1, product.moq || 1);
+    if (quantity < minAllowed) {
+      setOrderError(`الحد الأدنى لطلب هذا المنتج هو ${minAllowed} قطعة`);
+      return;
+    }
     setOrderError("");
     setOrdering(true);
 
@@ -386,11 +391,11 @@ export default function ProductDetailPage({
                 <div className="flex items-center gap-3">
                   <input
                     type="number"
-                    min={product.moq}
-                    step={10}
+                    min={Math.max(1, product.moq || 1)}
+                    step={1}
                     required
                     value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || product.moq)}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || product.moq || 1))}
                     className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#542cb7]"
                   />
                   <div className="bg-purple-50 text-[#542cb7] border border-purple-200 px-3 py-2.5 rounded-xl font-bold text-xs shrink-0">

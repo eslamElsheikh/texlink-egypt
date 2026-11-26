@@ -52,7 +52,7 @@ export default function NewRfqPage() {
   const [targetBudgetPerPiece, setTargetBudgetPerPiece] = useState<number | undefined>(45);
   const [deadlineDays, setDeadlineDays] = useState(15);
   const [sampleRequired, setSampleRequired] = useState(true);
-  const [targetGovernorate, setTargetGovernorate] = useState("المحلة الكبرى");
+  const [targetGovernorate, setTargetGovernorate] = useState("الدقهلية");
   const [notesAr, setNotesAr] = useState("");
 
   // Size breakdown table
@@ -81,15 +81,16 @@ export default function NewRfqPage() {
   ];
 
   const governorates = [
-    "المحلة الكبرى",
+    "الدقهلية",
+    "سلامون القماش – مركز المنصورة",
+    "طنامل – مركز أجا",
     "القاهرة",
     "الجيزة",
-    "الإسكندرية",
-    "شبرا الخيمة",
-    "العاشر من رمضان",
-    "المنوفية",
-    "الشرقية",
+    "الغربية",
     "القليوبية",
+    "الشرقية",
+    "الإسكندرية",
+    "المنوفية",
     "أي محافظة في مصر",
   ];
 
