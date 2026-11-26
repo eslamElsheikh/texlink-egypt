@@ -17,29 +17,42 @@
 .DS_Store
 *.pem
 
-# debug
+# debug & logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
+
+# python cache (skills)
+__pycache__/
+*.pyc
+*.pyo
 
 # local env files
-.env*.local
 .env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
-# database
+# database & local backups
 dev.db
 dev.db-journal
 prisma/*.db
+prisma/*.db-*
+*.sqlite
+*.sqlite3
+*.bak
+backups/
 
 # private document storage (contains sensitive commercial/tax registers)
 storage/private/*
 !storage/private/.gitkeep
 
 cloudflare-worker/dist/
+cloudflare-worker/.wrangler/
 .demo-credentials*.json
 artifacts/*.local.*
 artifacts/qa-accounts.local.md

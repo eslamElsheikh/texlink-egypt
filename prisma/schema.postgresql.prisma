@@ -53,13 +53,17 @@ model FactoryProfile {
   bioAr              String           @db.Text
   logoUrl            String?
   coverUrl           String?
-  accountStatus      String           @default("ACTIVE") // "ACTIVE", "SUSPENDED"
-  verificationStatus String           @default("PENDING") // "PENDING", "VERIFIED", "REJECTED"
-  rejectionReason    String?
-  verifiedAt         DateTime?
-  minOrderQuantity   Int              @default(50)
-  monthlyCapacity    Int              @default(5000)
-  establishedYear    Int              @default(2015)
+  accountStatus       String    @default("ACTIVE") // "ACTIVE", "SUSPENDED"
+  verificationStatus  String    @default("PENDING") // Platform physical/operational verification: "PENDING", "VERIFIED", "REJECTED"
+  commercialRegStatus String    @default("UNREGISTERED") // Legal status: "UNREGISTERED", "PENDING", "VERIFIED", "REJECTED"
+  taxRegStatus        String    @default("UNREGISTERED") // Legal status: "UNREGISTERED", "PENDING", "VERIFIED", "REJECTED"
+  rejectionReason     String?
+  verifiedAt          DateTime?
+  workerCount         Int       @default(1) // Minimum 1; used strictly for analytical size segmentation
+  machineCount        Int       @default(1) // Minimum 1 machine
+  minOrderQuantity    Int       @default(1)
+  monthlyCapacity     Int?
+  establishedYear     Int?
   rating             Float            @default(4.5)
   reviewCount        Int              @default(0)
   specialties        String           @db.Text // JSON string array e.g. ["تيشيرتات", "بولو"]
