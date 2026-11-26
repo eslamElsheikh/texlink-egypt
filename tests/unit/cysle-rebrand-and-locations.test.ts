@@ -78,10 +78,10 @@ describe("Cysle Egypt — All 27 Egyptian Governorates & Hierarchical Locations"
     const tanamil = dakahliaAreas.find((a) => a.slug === "mansoura-tanamil");
 
     expect(salamon).toBeDefined();
-    expect(salamon?.nameAr).toBe("المنصورة – سلامون");
+    expect(salamon?.nameAr).toBe("سلامون القماش – مركز المنصورة – الدقهلية");
 
     expect(tanamil).toBeDefined();
-    expect(tanamil?.nameAr).toBe("المنصورة – طنامل");
+    expect(tanamil?.nameAr).toBe("طنامل – مركز أجا – الدقهلية");
 
     expect(INDUSTRIAL_AREAS_BY_SLUG["mansoura-salamon"]).toBeDefined();
     expect(INDUSTRIAL_AREAS_BY_SLUG["mansoura-tanamil"]).toBeDefined();

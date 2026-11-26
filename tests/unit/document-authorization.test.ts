@@ -7,8 +7,8 @@ vi.mock("@/lib/auth/session", () => ({
   setSessionCookie: vi.fn(async () => {}),
 }));
 
-vi.mock("@/lib/db/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/db/prisma", () => {
+  const mockPrisma: Record<string, unknown> = {
     factoryDocument: {
       findFirst: vi.fn(),
       createMany: vi.fn(),
@@ -19,6 +19,7 @@ vi.mock("@/lib/db/prisma", () => ({
       create: vi.fn(),
     },
     factoryProfile: {
+      findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn(),
     },
     factorySettings: {
@@ -30,8 +31,13 @@ vi.mock("@/lib/db/prisma", () => ({
     notification: {
       create: vi.fn(),
     },
-  },
-}));
+    $transaction: vi.fn(async (cb: (tx: Record<string, unknown>) => Promise<unknown>) =>
+      cb(mockPrisma)
+    ),
+  };
+
+  return { prisma: mockPrisma };
+});
 
 vi.mock("@/lib/storage/supabase", () => ({
   isSupabasePrivateStorageConfigured: vi.fn(() => true),
@@ -304,6 +310,8 @@ describe("Private Document Tenant Isolation & Scoped Authorization", () => {
       whatsapp: "01012345678",
       bioAr: "مصنع متخصص في إنتاج الملابس الجاهزة والأقمشة القطنية عالية الجودة",
       establishedYear: 2015,
+      workerCount: 1,
+      machineCount: 1,
       monthlyCapacity: 10000,
       minOrderQuantity: 100,
       specialties: ["تيشيرتات"],
